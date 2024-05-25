@@ -1,0 +1,635 @@
+
+```{r , echo=FALSE, warning = FALSE, message = FALSE}
+
+## numero de linhas
+formatar_numero_linhas <- function(dataframe) {
+  numero_formatado <- format(nrow(dataframe), big.mark = ".", decimal.mark = ",")
+  return(numero_formatado)
+}
+
+## numero e percentual
+extrair <- function(dataframe, coluna, valor) {
+  return(dataframe[dataframe[, coluna] == valor, ])
+}
+
+notificados_ano_zikv <- formatar_numero_linhas(Zika) 
+n_municipios_ano_zikv <- n_distinct(Zika$mun)
+
+confirmados_zikv <- Zika %>% 
+  filter(CLASSI_FIN =="1") 
+ 
+confirmados_ano_zikv <- formatar_numero_linhas(confirmados_zikv)
+
+notificados_atual_zikv <- nrow(Zika) 
+
+confirmados_atual_zikv <- Zika %>% 
+  filter(CLASSI_FIN =="1") %>% 
+  nrow
+
+investigacao_atual_zikv <- Zika %>% 
+  filter(is.na(CLASSI_FIN)) %>% 
+  nrow
+
+obitos_atual_zikv <- Zika %>% 
+  filter(CLASSI_FIN =="1", EVOLUCAO == 2) %>% 
+  nrow
+
+notificados_ano_anterior_zikv <- nrow(Zika_ano_anterior) 
+
+confirmados_ano_anterior_zikv <- Zika_ano_anterior %>% 
+  filter(CLASSI_FIN =="1") %>% 
+  nrow
+
+obitos_ano_anterior_zikv <- Zika_ano_anterior %>% 
+  filter(CLASSI_FIN =="1", EVOLUCAO == 2) %>% 
+  nrow
+
+notificados_ano_anterior_parcial_zikv <- Zika_ano_anterior %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  nrow() 
+
+confirmados_ano_anterior_parcial_zikv <- Zika_ano_anterior %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  filter(CLASSI_FIN =="1") %>% 
+  nrow
+
+obitos_ano_anterior_parcial_zikv <- Zika_ano_anterior %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  filter(CLASSI_FIN =="1", EVOLUCAO == 2) %>% 
+  nrow
+
+tabela_zikv <- data.frame(ano = c(year(min(Zika_ano_anterior$DT_NOTIFIC)), year(min(Zika_ano_anterior$DT_NOTIFIC)), year(max(Zika$DT_NOTIFIC))),
+                     periodo = c("SE 1 - 52", paste0("SE 1 - ", SE_final$SE), paste0("SE 1 - ", SE_final$SE)),
+                     notificados = c(notificados_ano_anterior_zikv, notificados_ano_anterior_parcial_zikv, notificados_atual_zikv),
+                     investigacao = c(".", ".", format(investigacao_atual_zikv, big.mark = ".", decimal.mark = ",")),
+                     confirmados = c(confirmados_ano_anterior_zikv, confirmados_ano_anterior_parcial_zikv, confirmados_atual_zikv),
+                     obitos = c(obitos_ano_anterior_zikv, obitos_ano_anterior_parcial_zikv, obitos_atual_zikv)
+) %>% 
+
+        mutate(notificacao = case_when(ano == year(max(Zika$DT_NOTIFIC)) & notificados > lag(notificados, default = NA) ~ "2",
+                                         ano == year(max(Zika$DT_NOTIFIC)) & notificados < lag(notificados, default = NA) ~ "0"),
+               confirmacao = case_when(ano == year(max(Zika$DT_NOTIFIC)) & confirmados > lag(confirmados, default = NA) ~ "2",
+                                           ano == year(max(Zika$DT_NOTIFIC)) & confirmados < lag(confirmados, default = NA) ~ "0"),
+               mortes = case_when(ano == year(max(Zika$DT_NOTIFIC)) & obitos > lag(obitos, default = NA) ~ "2",
+                                         ano == year(max(Zika$DT_NOTIFIC)) & obitos < lag(obitos, default = NA) ~ "0")) %>% 
+        mutate(notificacao = case_when(notificacao == 2 ~ "#C51620",
+                                         notificacao == 0 ~ "#2D708EFF",
+                                         T ~ "white"),
+               confirmacao = case_when(confirmacao == 2 ~ "#C51620", 
+                                       confirmacao == 0 ~ "#2D708EFF",
+                                       T ~ "white"),
+               mortes = case_when(mortes == 2 ~ "#C51620", 
+                                  mortes == 0 ~ "#2D708EFF",
+                                  T ~ "white")) %>% 
+        mutate(notificados = format(notificados, big.mark = ".", decimal.mark = ","),
+               confirmados = format(confirmados, big.mark = ".", decimal.mark = ","),
+               obitos = format(obitos, big.mark = ".", decimal.mark = ","))
+
+caract_tabela_zikv <- tabela_zikv %>% 
+  filter(ano == 2024) %>% 
+  mutate(notificacao = case_when(notificacao == "#C51620" ~ "aumento",
+                                     notificacao == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"),
+         confirmacao = case_when(confirmacao == "#C51620" ~ "aumento",
+                                     confirmacao == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"),
+         mortes = case_when(mortes == "#C51620" ~ "aumento",
+                                   mortes == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"))
+
+#############gestantes
+
+gestantes_ant <- c("1", "2", "3", "4")
+gestantes <- c("Sim - 1º trimestre", "Sim - 2º trimestre", "Sim - 3º trimestre", "Sim - Idade gestacional ignorada")
+
+Zika_ano_anterior_gestantes <- Zika_ano_anterior %>% 
+    filter(CS_GESTANT %in% gestantes_ant,
+         CS_SEXO == "F")
+
+Zika_gestantes <- Zika %>% 
+  filter(CS_GESTANT %in% gestantes,
+         CS_SEXO == "Feminino") 
+
+notificados_ano_zikv_gestantes <- formatar_numero_linhas(Zika_gestantes) 
+n_municipios_ano_zikv_gestantes <- n_distinct(Zika_gestantes$mun)
+
+confirmados_zikv_gestantes <- Zika_gestantes %>% 
+  filter(CLASSI_FIN =="1") 
+ 
+confirmados_ano_zikv_gestantes <- formatar_numero_linhas(confirmados_zikv_gestantes)
+
+notificados_atual_zikv_gestantes <- nrow(Zika_gestantes) 
+
+confirmados_atual_zikv_gestantes <- Zika_gestantes %>% 
+  filter(CLASSI_FIN =="1") %>% 
+  nrow
+
+investigacao_atual_zikv_gestantes <- Zika_gestantes %>% 
+  filter(is.na(CLASSI_FIN)) %>% 
+  nrow
+
+obitos_atual_zikv_gestantes <- Zika_gestantes %>% 
+  filter(CLASSI_FIN =="1", EVOLUCAO == 2) %>% 
+  nrow
+
+notificados_ano_anterior_zikv_gestantes <- nrow(Zika_ano_anterior_gestantes) 
+
+confirmados_ano_anterior_zikv_gestantes <- Zika_ano_anterior_gestantes %>% 
+  filter(CLASSI_FIN =="1") %>% 
+  nrow
+
+obitos_ano_anterior_zikv_gestantes <- Zika_ano_anterior_gestantes %>% 
+  filter(CLASSI_FIN =="1", EVOLUCAO == 2) %>% 
+  nrow
+
+notificados_ano_anterior_parcial_zikv_gestantes <- Zika_ano_anterior_gestantes %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  nrow() 
+
+confirmados_ano_anterior_parcial_zikv_gestantes <- Zika_ano_anterior_gestantes %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  filter(CLASSI_FIN =="1") %>% 
+  nrow
+
+obitos_ano_anterior_parcial_zikv_gestantes <- Zika_ano_anterior_gestantes %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  filter(CLASSI_FIN =="1", EVOLUCAO == 2) %>% 
+  nrow
+
+tabela_zikv_gestantes <- data.frame(ano = c(year(min(Zika_ano_anterior_gestantes$DT_NOTIFIC)), year(min(Zika_ano_anterior_gestantes$DT_NOTIFIC)),    year(max(Zika_gestantes$DT_NOTIFIC))),
+                     periodo = c("SE 1 - 52", paste0("SE 1 - ", SE_final$SE), paste0("SE 1 - ", SE_final$SE)),
+                     notificados = c(notificados_ano_anterior_zikv_gestantes, notificados_ano_anterior_parcial_zikv_gestantes, notificados_atual_zikv_gestantes),
+                     investigacao = c(".", ".", format(investigacao_atual_zikv_gestantes, big.mark = ".", decimal.mark = ",")),
+                     confirmados = c(confirmados_ano_anterior_zikv_gestantes, confirmados_ano_anterior_parcial_zikv_gestantes, confirmados_atual_zikv_gestantes),
+                     obitos = c(obitos_ano_anterior_zikv_gestantes, obitos_ano_anterior_parcial_zikv_gestantes, obitos_atual_zikv_gestantes)
+) %>% 
+
+        mutate(notificacao = case_when(ano == year(max(Zika_gestantes$DT_NOTIFIC)) & notificados > lag(notificados, default = NA) ~ "2",
+                                         ano == year(max(Zika_gestantes$DT_NOTIFIC)) & notificados < lag(notificados, default = NA) ~ "0"),
+               confirmacao = case_when(ano == year(max(Zika_gestantes$DT_NOTIFIC)) & confirmados > lag(confirmados, default = NA) ~ "2",
+                                           ano == year(max(Zika_gestantes$DT_NOTIFIC)) & confirmados < lag(confirmados, default = NA) ~ "0"),
+               mortes = case_when(ano == year(max(Zika_gestantes$DT_NOTIFIC)) & obitos > lag(obitos, default = NA) ~ "2",
+                                         ano == year(max(Zika_gestantes$DT_NOTIFIC)) & obitos < lag(obitos, default = NA) ~ "0")) %>% 
+        mutate(notificacao = case_when(notificacao == 2 ~ "#C51620",
+                                         notificacao == 0 ~ "#2D708EFF",
+                                         T ~ "white"),
+               confirmacao = case_when(confirmacao == 2 ~ "#C51620", 
+                                       confirmacao == 0 ~ "#2D708EFF",
+                                       T ~ "white"),
+               mortes = case_when(mortes == 2 ~ "#C51620", 
+                                  mortes == 0 ~ "#2D708EFF",
+                                  T ~ "white")) %>% 
+        mutate(notificados = format(notificados, big.mark = ".", decimal.mark = ","),
+               confirmados = format(confirmados, big.mark = ".", decimal.mark = ","),
+               obitos = format(obitos, big.mark = ".", decimal.mark = ","))
+
+caract_tabela_zikv_gestantes <- tabela_zikv_gestantes %>% 
+  filter(ano == 2024) %>% 
+  mutate(notificacao = case_when(notificacao == "#C51620" ~ "aumento",
+                                     notificacao == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"),
+         confirmacao = case_when(confirmacao == "#C51620" ~ "aumento",
+                                     confirmacao == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"),
+         mortes = case_when(mortes == "#C51620" ~ "aumento",
+                                   mortes == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"))
+                             
+```
+                             
+<br/>
+<br/>
+
+## Zika
+
+De `r format(as.Date(primeiro_dia_ano), '%d de %B')` até `r data_final_SE` (SE `r SE_final`), foram notificados `r notificados_ano_zikv` casos de Zika no SINAN, residentes em `r n_municipios_ano_zikv` municípios do ESP. Do total de casos notificados em `r year(primeiro_dia_ano)`, `r confirmados_ano_zikv` foram confirmados. 
+
+Em comparação ao mesmo período (SE 1 a `r SE_final`) do ano de `r ano - 1`, observou-se `r caract_tabela_zikv$notificacao` do número de notificações e `r caract_tabela_zikv$confirmacao` das confirmações, considerando a população geral (**Tabela 7**). Em relação às gestantes, houve `r caract_tabela_zikv_gestantes$notificacao` das notificações, com `r caract_tabela_zikv_gestantes$confirmacao` confirmações (**Tabela 8**). O ESP permaneceu sem ocorrência de óbitos por Zika.
+
+<br/>
+
+**_Tabela 7_ - Número de casos notificados, confirmados e óbitos por Zika na população geral, SE 1 a `r SE_final$SE`, `r ano - 1` e `r ano`, estado de São Paulo**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.height = 4, fig.width = 12, fig.align = "center"}
+
+left_border<-cell_style(border_color = "#f2f2f2",border_style = "solid",border_width = "1px 0px 0px 0px")
+right_border<-cell_style(border_color = "#f2f2f2",border_style = "solid",border_width = "1px 0px 2px 0px")
+
+tabela_anos_zikv <- reactable(
+        tabela_zikv,
+        theme = reactableTheme(
+                style = list(fontSize = 14, padding = "0px 0px 0px 0px"),
+                groupHeaderStyle = list(fontWeight = "bold")
+        ),
+        fullWidth = FALSE,
+        defaultColDef = colDef(vAlign = "center", width = 120),
+        columnGroups = list(
+                colGroup(name = "", columns = c("ano", "periodo", "notificados", "investigacao", "confirmados", "obitos"))),
+        columns = list(
+                notificacao = colDef(show=FALSE),
+                confirmacao = colDef(show=FALSE),
+                mortes = colDef(show=FALSE),
+                ano = colDef(name = "Ano",
+                             sticky="left",
+                             width=50,
+                             style='background-color:#FCFCFC;'),
+                periodo = colDef(name = "Período", 
+                                 style = cell_style(
+                                         border_color = "#f2f2f2",
+                                         border_style = "solid",
+                                         border_width = "1px 0px 0px 2px",
+                                         vertical_align = "center",
+                                         horizontal_align = "center"),
+                                 align = "center"),
+                notificados = colDef(name = "Notificados", 
+                                     style = cell_style(
+                                             border_color = "#f2f2f2",
+                                             border_style = "solid",
+                                             border_width = "1px 0px 0px 2px",
+                                             vertical_align = "center",
+                                             horizontal_align = "center"),
+                                     align = "right",
+                                     cell = function(value, index){
+                                             color = tabela_zikv$notificacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_zikv$notificacao[index] == "#C51620","arrow-up","arrow-down")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                     span(value, style=glue("text-align:right;display:inline-block;width:70px;color:black;"))
+                                             )
+                                     }),
+                investigacao = colDef(name = "Investigação", 
+                                 style = cell_style(
+                                         border_color = "#f2f2f2",
+                                         border_style = "solid",
+                                         border_width = "1px 0px 0px 2px",
+                                         vertical_align = "center",
+                                         horizontal_align = "center"),
+                                 align = "right"),
+                confirmados = colDef(name = "Confirmados",
+                                     style = cell_style(
+                                             border_color = "#f2f2f2",
+                                             border_style = "solid",
+                                             border_width = "1px 0px 0px 2px",
+                                             vertical_align = "center",
+                                             horizontal_align = "center"),
+                                     align = "right", 
+                                     cell = function(value, index){
+                                             color = tabela_zikv$confirmacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_zikv$confirmacao[index] == "#C51620","arrow-up","arrow-down")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                     span(value, style=glue("text-align:right;display:inline-block;width:70px;color:black;"))
+                                             )
+                                     }),
+                obitos = colDef(name = "Óbitos",
+                                style = cell_style(
+                                        border_color = "#f2f2f2",
+                                        border_style = "solid",
+                                        border_width = "1px 0px 0px 2px",
+                                        vertical_align = "center",
+                                        horizontal_align = "center"),
+                                align = "right", 
+                                cell = function(value, index){
+                                        color = tabela_zikv$mortes[index]
+                                        value = value
+                                        icon = ifelse(tabela_zikv$mortes[index] == "#C51620","arrow-up","arrow-down")
+                                        tagList(
+                                                span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                span(value, style=glue("text-align:right;display:inline-block;width:45px;color:black;"))
+                                        )
+                                }))) %>%
+        reactablefmtr::google_font(font_family = "IBM Plex Sans", font_weight = c(400, 600)) %>% 
+        add_source(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")"), font_size = 10, font_color = "#737373")
+  
+tabela_anos_zikv
+
+```
+
+<br/>
+
+**_Tabela 8_ - Número de casos notificados, confirmados e óbitos por Zika entre gestantes, SE 1 a `r SE_final$SE`, `r ano - 1` e `r ano`, estado de São Paulo**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.height = 4, fig.width = 12, fig.align = "center"}
+
+tabela_anos_zikv_gestantes <- reactable(
+        tabela_zikv_gestantes,
+        theme = reactableTheme(
+                style = list(fontSize = 14, padding = "0px 0px 0px 0px"),
+                groupHeaderStyle = list(fontWeight = "bold")
+        ),
+        fullWidth = FALSE,
+        defaultColDef = colDef(vAlign = "center", width = 120),
+        columnGroups = list(
+                colGroup(name = "", columns = c("ano", "periodo", "notificados", "investigacao", "confirmados", "obitos"))),
+        columns = list(
+                notificacao = colDef(show=FALSE),
+                confirmacao = colDef(show=FALSE),
+                mortes = colDef(show=FALSE),
+                ano = colDef(name = "Ano",
+                             sticky="left",
+                             width=50,
+                             style='background-color:#FCFCFC;'),
+                periodo = colDef(name = "Período", 
+                                 style = cell_style(
+                                         border_color = "#f2f2f2",
+                                         border_style = "solid",
+                                         border_width = "1px 0px 0px 2px",
+                                         vertical_align = "center",
+                                         horizontal_align = "center"),
+                                 align = "center"),
+                notificados = colDef(name = "Notificados", 
+                                     style = cell_style(
+                                             border_color = "#f2f2f2",
+                                             border_style = "solid",
+                                             border_width = "1px 0px 0px 2px",
+                                             vertical_align = "center",
+                                             horizontal_align = "center"),
+                                     align = "right",
+                                     cell = function(value, index){
+                                             color = tabela_zikv_gestantes$notificacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_zikv_gestantes$notificacao[index] == "#C51620","arrow-up","arrow-down")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                     span(value, style=glue("text-align:right;display:inline-block;width:70px;color:black;"))
+                                             )
+                                     }),
+                investigacao = colDef(name = "Investigação", 
+                                 style = cell_style(
+                                         border_color = "#f2f2f2",
+                                         border_style = "solid",
+                                         border_width = "1px 0px 0px 2px",
+                                         vertical_align = "center",
+                                         horizontal_align = "center"),
+                                 align = "right"),
+                confirmados = colDef(name = "Confirmados",
+                                     style = cell_style(
+                                             border_color = "#f2f2f2",
+                                             border_style = "solid",
+                                             border_width = "1px 0px 0px 2px",
+                                             vertical_align = "center",
+                                             horizontal_align = "center"),
+                                     align = "right", 
+                                     cell = function(value, index){
+                                             color = tabela_zikv_gestantes$confirmacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_zikv_gestantes$confirmacao[index] == "#C51620","arrow-up","arrow-down")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                     span(value, style=glue("text-align:right;display:inline-block;width:70px;color:black;"))
+                                             )
+                                     }),
+                obitos = colDef(name = "Óbitos",
+                                style = cell_style(
+                                        border_color = "#f2f2f2",
+                                        border_style = "solid",
+                                        border_width = "1px 0px 0px 2px",
+                                        vertical_align = "center",
+                                        horizontal_align = "center"),
+                                align = "right", 
+                                cell = function(value, index){
+                                        color = tabela_zikv_gestantes$mortes[index]
+                                        value = value
+                                        icon = ifelse(tabela_zikv_gestantes$mortes[index] == "#C51620","arrow-up","arrow-down")
+                                        tagList(
+                                                span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                span(value, style=glue("text-align:right;display:inline-block;width:45px;color:black;"))
+                                        )
+                                }))) %>%
+        reactablefmtr::google_font(font_family = "IBM Plex Sans", font_weight = c(400, 600)) %>% 
+        add_source(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")"), font_size = 10, font_color = "#737373")
+  
+tabela_anos_zikv_gestantes
+```
+
+<br/>
+
+```{r , echo=FALSE, warning = FALSE, message = FALSE}
+
+# Criando o objeto para o ano corrente
+Zika_atual <- Zika %>% 
+  filter(CLASSI_FIN == 1 | is.na(CLASSI_FIN)) %>% 
+        mutate(semana_epi = floor_date(DT_SIN_PRI, "week")) %>% 
+        group_by(semana_epi, classificacao) %>% 
+        summarise(casos = n()) %>% 
+        mutate(semana_epi = epiweek(semana_epi))
+  
+```
+
+<br/>
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+sexo_zikv <- confirmados_zikv %>%
+  group_by(sexo) %>% 
+  drop_na(sexo) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+n_masc_zikv <- sexo_zikv[sexo_zikv$sexo=="Masculino", "casos"]
+perc_masc_zikv <- sexo_zikv[sexo_zikv$sexo=="Masculino", "perc"]
+
+n_fem_zikv <- sexo_zikv[sexo_zikv$sexo=="Feminino", "casos"]
+perc_fem_zikv <- sexo_zikv[sexo_zikv$sexo=="Feminino", "perc"]
+
+raca_zikv <- confirmados_zikv %>%
+  group_by(racaCor) %>% 
+  drop_na(racaCor) %>%
+  mutate(racaCor = case_when(racaCor == "Parda" | racaCor == "Preta" ~ "Negra", T ~ racaCor)) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+n_branca_zikv <- raca_zikv[raca_zikv$racaCor=="Branca", "casos"]
+perc_branca_zikv <- raca_zikv[raca_zikv$racaCor=="Branca", "perc"]
+
+n_negra_zikv <- raca_zikv[raca_zikv$racaCor=="Negra", "casos"]
+perc_negra_zikv <- raca_zikv[raca_zikv$racaCor=="Negra", "perc"]
+
+quantis_idade_zikv <- quantile(confirmados_zikv$idade, na.rm = T)
+
+faixas_etarias_zikv <- confirmados_zikv %>%
+  group_by(fx_et) %>% 
+  drop_na(fx_et) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+top3_f_et_zikv <- faixas_etarias_zikv %>% 
+  mutate(fx_et = as.character(fx_et)) %>% 
+        arrange(desc(casos)) %>% 
+        top_n(3, casos)
+
+fx_et1_zikv <- top3_f_et_zikv[1,1]
+n_fx_et1_zikv <- top3_f_et_zikv[1,2]
+perc_fx_et1_zikv <- top3_f_et_zikv[1,3]
+
+fx_et2_zikv <- top3_f_et_zikv[2,1]
+n_fx_et2_zikv <- top3_f_et_zikv[2,2]
+perc_fx_et2_zikv <- top3_f_et_zikv[2,3]
+
+fx_et3_zikv <- top3_f_et_zikv[3,1]
+n_fx_et3_zikv <- top3_f_et_zikv[3,2]
+perc_fx_et3_zikv <- top3_f_et_zikv[3,3]
+
+# Quanto ao sexo de nascimento, `r perc_fem_zikv` dos casos eram mulheres e `r perc_masc_zikv` eram homens (**Tabela 9**). A raça/cor braca correspondeu a `r perc_branca_zikv` dos casos.
+
+```
+
+A faixa etária mais afetada pelos casos de Zika no estado de São Paulo foi a de `r fx_et1_zikv` anos, com `r perc_fx_et1_zikv` dos casos confirmados. A mediana de idade foi de `r round(quantis_idade_zikv[3])` anos (IQR: `r round(quantis_idade_zikv[2])`-`r round(quantis_idade_zikv[4])`) (**Tabela 9**). 
+
+<br/>
+
+**_Tabela 9_ - Casos confirmados de Zika, segundo características sociodemográficas, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+theme_gtsummary_language("pt", big.mark = ".", decimal.mark = ",")
+
+confirmados_zikv %>%
+        select(idade,
+               fx_et,
+               sexo,
+               CS_GESTANT) %>%
+  droplevels() %>% 
+         tbl_summary(., missing = "no",
+                    statistic = list(all_continuous() ~ c(
+                            "{median} ({p25}, {p75})")),
+                    type = list(idade ~ "continuous"),
+                    label = list(idade ~ "Idade",
+                                 fx_et ~ "Faixa etária",
+                                 sexo ~ "Sexo de nascimento",
+                                 CS_GESTANT ~ "Gestante/Idade gestacional")) %>%
+        modify_header(label = " ") %>% # update the column header
+        bold_labels() %>%
+        modify_footnote(all_stat_cols() ~ paste0("Mediana (IQR); n (%). Fonte: SINAN, ", format(dt_atualizacao, "%d/%m/%Y")))
+
+```
+
+<br/>
+
+A distribuição dos casos confirmados e em investigação de Zika por SE durante o ano de `r ano` pode ser verificada na **Figura 13**. 
+
+<br/>
+
+**_Figura 13_ - Série temporal dos casos confirmados e em investigação de Zika, SE 1 a `r SE_final` de `r ano`, estado de São Paulo**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.height = 4, fig.width = 12, fig.align = "center"}
+
+# Criando o gráfico série temporal 
+# gráfico -----------------------------------------------------------------
+
+cores <- c("#184e77", "#34a0a4")
+
+plot_ly(data = Zika_atual, x = ~semana_epi, y = ~casos,
+        type = "bar",
+        text = ~paste("SE:", semana_epi, "<br>Classificação final: ", classificacao, "<br>Número de casos ", ano, ":", format(casos, big.mark = ".", decimal.mark = ",")),
+        hoverinfo = "text",
+        textposition = "none",
+        name = ~classificacao,
+        color = ~classificacao,
+        colors = cores) %>%
+  layout(xaxis = list(title = "Semana Epidemiológica"),
+         yaxis = list(title = "Número de casos"),
+         legend = list(x = 0.05, y = 0.9),
+         annotations = list(
+           x = 1,
+           y = -0.1,
+           text = paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")"),
+           showarrow = FALSE,
+           xref = "paper",
+           yref = "paper",
+           xanchor = "right",
+           yanchor = "middle",
+           xshift = 0,
+           yshift = -2,
+           font = list(size = 8)),
+         barmode = 'stack',
+         margin = list(l = 50, r = 50, b = 100, t = 50))
+ 
+```
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE}
+
+Zika_rs <- Zika %>%
+  filter(CLASSI_FIN == 1 | is.na(CLASSI_FIN)) %>% 
+  group_by(cod_rs, nome_rs) %>% 
+  arrange(CLASSI_FIN) %>% 
+  distinct(cod_rs, nome_rs, .keep_all = T) %>% 
+  ungroup() %>% 
+  left_join(pop_rs, by = c("cod_rs")) %>%
+  select(-nome_rs.y) %>% 
+  rename(nome_rs = nome_rs.x) %>%
+  mutate(cod_rs = as.numeric(cod_rs))
+  
+Zika_rs_gestantes <- Zika_gestantes %>%
+  filter(CLASSI_FIN == 1 | is.na(CLASSI_FIN)) %>% 
+  group_by(cod_rs, nome_rs) %>% 
+  arrange(CLASSI_FIN) %>% 
+  distinct(cod_rs, nome_rs, .keep_all = T) %>% 
+  ungroup() %>% 
+  left_join(pop_rs, by = c("cod_rs")) %>%
+  select(-nome_rs.y) %>% 
+  rename(nome_rs = nome_rs.x) %>% 
+  mutate(cod_rs = as.numeric(cod_rs))
+
+```
+
+As RS com casos confirmados e em investigação podem ser consultadas na **Figura 14** (RS com casos confirmados também podem ter casos em investigação). 
+
+<br/>
+
+**_Figura 14_ - RS com casos confirmados e em investigação de Zika na população geral e entre gestantes, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+casos_zikv <- left_join(rs, Zika_rs, by = c("cod_RS" = "cod_rs")) %>% 
+  dplyr::select(nome_rs, classificacao) %>% 
+  mutate(classificacao = case_when(is.na(classificacao) ~ "Sem notificação", T ~ classificacao),
+         classificacao = factor(classificacao, levels = c("Confirmado", "Em investigação", "Sem notificação")))
+          
+casos_zikv_gestantes <- left_join(rs, Zika_rs_gestantes, by = c("cod_RS" = "cod_rs")) %>% 
+  dplyr::select(nome_rs, classificacao) %>%
+  mutate(classificacao = case_when(is.na(classificacao) ~ "Sem notificação", T ~ classificacao),
+                 classificacao = factor(classificacao, levels = c("Confirmado", "Em investigação", "Sem notificação")))
+
+# Configurar sf_use_s2
+sf_use_s2(FALSE)
+
+# Configurar o modo de visualização e exibir o mapa
+
+tmap_mode("view") 
+
+geral <- tm_shape(casos_zikv) +
+  tm_polygons(c("classificacao"), lwd = .3, style = "cat",
+              palette =c("#184e77", "#34a0a4", "gray70"),
+              popup.vars=c("Classificação"="classificacao"),
+              title=c("Casos confirmados ou em investigação na população geral")) +
+  tm_shape(rs) +
+  tm_borders(lwd = .1, col = "gray90") +
+  tm_credits(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")")) +
+  tm_view(set.view = c(-48.65, -22.4, 6)) 
+ 
+gestantes <- tm_shape(casos_zikv_gestantes) +
+  tm_polygons(c("classificacao"), lwd = .3, style = "cat",
+              palette =c("#168aad", "gray70"),
+              popup.vars=c("Classificação"="classificacao"),
+              title=c("Casos confirmados ou em investigação entre gestantes")) +
+  tm_shape(rs) +
+  tm_borders(lwd = .1, col = "gray90") +
+  tm_credits(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")")) +
+  tm_view(set.view = c(-48.65, -22.4, 6)) 
+  
+tmap_arrange(geral, gestantes, ncol = 2)
+
+```
+
+<br/>
+<br/>
+
+
+
+
+
+

@@ -1,0 +1,5 @@
+"0","micro <- read_micro_region(code_muni=""SP"", year=2020)
+"
+"2","Error in read_micro_region(code_muni = ""SP"", year = 2020) : 
+  unused argument (code_muni = ""SP"")
+"

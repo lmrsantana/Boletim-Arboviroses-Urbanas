@@ -1,0 +1,28 @@
+"0","tm_shape(sorotipo) +
+  tm_polygons(c(""sorotipo""), lwd = .3, style = ""cat"",
+              palette = c(""1"" = ""#ee9600"", 
+             ""2"" = ""#E28600"",  
+             ""3"" = ""#D67601"", 
+             ""4"" = ""#962226"",  
+             ""1, 2"" = ""#ca6702"", 
+             ""1, 3"" = ""#bb3c03"", 
+             ""1, 4"" = ""#ae2012"",
+             ""2, 3"" = ""#8E2423"",
+             ""2, 4"" = ""#7F1B20"",
+             ""3, 4"" = ""#702017"",
+             ""1, 2, 3"" = ""#601918"",
+             ""1, 2, 4"" = ""#4F1215"",  
+             ""1, 3, 4"" = ""#411011"",  
+             ""2, 3, 4"" = ""#350C0D"",  
+             ""1, 2, 3, 4"" = ""#270709"", 
+             ""Sem identificação"" = ""gray80""),  
+
+              popup.vars=c(""Sorotipos DENV""=""sorotipo""),
+              title=c(""Sorotipos DENV"")) +
+  tm_shape(rs) +
+  tm_borders(lwd = .1, col = ""gray90"") +
+  tm_credits(paste0(""Fonte: SINAN (atualizado em "", format(dt_atualizacao, '%d/%m/%Y'), "")"")) +
+  tm_view(set.view = c(-48.65, -22.4, 6.5))
+"
+"2","Credits not supported in view mode.
+"

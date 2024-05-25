@@ -1,0 +1,10 @@
+"0","# Criando o objeto para o ano corrente
+Zika_atual <- Zika %>% 
+  filter(CLASSI_FIN == 1 | is.na(CLASSI_FIN)) %>% 
+        mutate(semana_epi = floor_date(DT_SIN_PRI, ""week"")) %>% 
+        group_by(semana_epi, classificacao) %>% 
+        summarise(casos = n()) %>% 
+        mutate(semana_epi = epiweek(semana_epi))
+"
+"1","[38;5;250m`summarise()` has grouped output by 'semana_epi'. You can override using the `.groups` argument.[39m
+"

@@ -1,0 +1,12 @@
+"0","obitos_rs_chik <- confirmados_chik %>%
+  filter(EVOLUCAO == 2) %>% 
+  group_by(cod_rs, nome_rs) %>% 
+  summarise(obitos = n()) %>% 
+  ungroup() %>% 
+  left_join(pop_rs, by = c(""cod_rs"")) %>%
+  mutate(obitos = replace_na(obitos, 0),
+         obitos = round(obitos)) %>% 
+        mutate(cod_rs = as.numeric(cod_rs))
+"
+"1","[38;5;250m`summarise()` has grouped output by 'cod_rs'. You can override using the `.groups` argument.[39m
+"

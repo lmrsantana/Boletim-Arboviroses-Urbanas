@@ -1,0 +1,335 @@
+---
+title: "<br><br>BOLETIM EPIDEMIOLÓGICO: Arboviroses Urbanas no Estado de São Paulo"
+author: "Divisão de Dengue, Chikungunya e Zika/CVE/CCD/SES-SP"
+date: "`r format(Sys.Date(), '%d de %B de %Y')`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{=html}
+<style>
+body {
+text-align: justify}
+</style>
+```
+```{css style settings, echo = FALSE}
+blockquote {
+    font-size: 12px;
+    background-color: rgb(50,136,189, 0.40);
+    border-left: 5px solid #481567FF;
+}
+
+body {
+  font-size: 16px;
+}
+
+```
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri(file.path("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses/Figuras/logo.png")), 
+               alt = 'logo', 
+               style = 'position:absolute; top:0; right:0; padding:0px;',
+               width = "700px",
+               heigth = "300px")
+```
+
+
+```{r , echo=FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE, encoding = 'Latin-1')
+knitr::opts_knit$set(progress = FALSE, verbose = FALSE)
+options(knitr.duplicate.label = "allow")
+
+
+library(foreign)
+library(readxl)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(tmap)
+library(stringi)
+library(DT)
+library(gtsummary)
+library(janitor)
+library(reactable)
+library(reactablefmtr)
+library(glue)
+library(htmltools)
+library(here)
+library(spdep)
+
+load("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/historico.RData")
+
+
+# lendo as bases de dados SINAN
+read_and_mutate_dbf <- function(file_path) {
+  data <- read.dbf(file_path, as.is = TRUE) %>%
+          select(-PLAQ_MENOR) %>% 
+          #mutate(PLAQ_MENOR = as.numeric(PLAQ_MENOR)) %>%
+          filter(str_detect(ID_MN_RESI, "^35"))
+  
+  return(data)
+}
+
+# dengon_2023 <- read_and_mutate_dbf("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/D2023.dbf")
+# chikon_2023 <- read_and_mutate_dbf("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/CHIKON2023.dbf")
+# zika_2023 <- read.dbf("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/N2023.dbf", as.is = TRUE) %>%
+#         filter(ID_AGRAVO == "A928") %>%
+#         filter(str_detect(ID_MN_RESI, "^35"))
+
+# historico_dengue <- bind_rows(historico_dengue, dengon_2023)
+# historico_chikungunya <- bind_rows(historico_chikungunya, chikon_2023)
+# historico_zika <- bind_rows(historico_zika, zika_2023)
+# rm(dengon_2023, chikon_2023, zika_2023)
+
+dengon00 <- read_and_mutate_dbf("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/D2024_00.dbf")
+dengon01 <- read_and_mutate_dbf("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/D2024_01.dbf")
+dengon <- bind_rows(dengon00, dengon01)
+rm(dengon00, dengon01)
+chikon <- read_and_mutate_dbf("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/CHIKON2024.dbf")
+
+zikanet <- read.dbf("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/N2024.dbf", as.is = TRUE) %>%
+        filter(ID_AGRAVO == "A928") %>%
+        filter(str_detect(ID_MN_RESI, "^35"))
+
+# lendo as bases de dados populacao
+pop_municipio <- readRDS("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/pop_municipio.rds") 
+
+pop_rs <- readRDS("C:/Users/Lidia/OneDrive - PRODESP/boletim_arboviroses_2024/Bancos/pop_rs.rds") 
+
+
+# rs <- st_read("~/shapefiles/rs_sp/SP_Regiões de Saúde.shp", quiet = TRUE) 
+esp <- st_read("C:/Users/Lidia/OneDrive - PRODESP/shapefiles/municipios_sp/35MUE250GC_SIR.shp", quiet = TRUE) %>% 
+ rename(ID_MN_RESI = cod_6)
+Sys.setenv("SHAPE_ENCODING"= "CP1252")
+rs <- st_read("C:/Users/Lidia/OneDrive - PRODESP/shapefiles/rs_sp/SP_Regiões de Saúde.shp", quiet = TRUE) 
+
+# definindo as datas e semanas epidemiológicas do boletim
+dt_atualizacao <- max(dengon$DT_NOTIFIC)
+
+
+primeiro_dia_ano <- "2024-01-01"
+ano <- year(primeiro_dia_ano)
+
+SE_min <- epiweek(primeiro_dia_ano)
+
+
+
+SE <- dengon %>% 
+   filter(DT_SIN_PRI >= as.Date(primeiro_dia_ano) & DT_SIN_PRI < today()) %>% 
+   drop_na(DT_SIN_PRI) %>% 
+   summarise(SE = epiweek(max(floor_date(DT_SIN_PRI, "week"))))
+
+SE_inicio <- SE - 4
+SE_final <- SE - 1
+
+data_inicio <- lubridate::ymd(primeiro_dia_ano) + lubridate::weeks(SE_inicio - 1)
+data_final <- lubridate::ymd(primeiro_dia_ano) + lubridate::weeks(SE_final) - days(1)
+
+data_inicio_SE <- format(data_inicio, '%d de %B')
+data_final_SE <- format(data_final, '%d de %B de %Y')
+
+primeiro_dia_barra <- format(lubridate::ymd(primeiro_dia_ano), '%d/%m/%Y')
+data_inicio_barra <- format(lubridate::ymd(data_inicio), '%d/%m/%Y')
+data_final_barra <- format(lubridate::ymd(data_final), '%d/%m/%Y')
+
+# organizando as variáveis do banco
+
+aplicar_transformacoes <- function(dados) {
+  dados_transformados <- dados %>% 
+        drop_na(DT_SIN_PRI) %>% 
+        filter(DT_SIN_PRI >= as.Date(primeiro_dia_ano) &
+                       DT_SIN_PRI <= as.Date(data_final)) %>% 
+        mutate(classificacao = recode(CLASSI_FIN,
+                                      "5"  = "Descartado",
+                                      "10" = "Dengue",
+                                      "11" = "Dengue com sinais de alarme",
+                                      "12" = "Dengue grave",
+                                      "13" = "Chikungunya",
+                                      "8"  = "Inconclusivo")) %>% 
+        mutate(classificacao = fct_na_value_to_level(classificacao, level = "Em investigação")) %>% 
+        mutate(evolucao = recode(EVOLUCAO,
+                                 "1" = "Cura",
+                                 "2" = "Óbito por dengue",
+                                 "3" = "Óbito por outras causas",
+                                 "4" = "Óbito em investigação",
+                                 "9" = "Ignorado")) %>% 
+                mutate(evolucao = fct_na_value_to_level(evolucao, level = "Ignorado")) %>% 
+        mutate_at(vars(FEBRE, MIALGIA, CEFALEIA, EXANTEMA, VOMITO, NAUSEA,
+                       DOR_COSTAS, CONJUNTVIT, ARTRITE, ARTRALGIA, PETEQUIA_N,
+                       LEUCOPENIA, LACO, DOR_RETRO, DIABETES, HEMATOLOG, 
+                       HEPATOPAT, RENAL, HIPERTENSA, ACIDO_PEPT, AUTO_IMUNE,
+                       ALRM_HIPOT, ALRM_PLAQ, ALRM_VOM, ALRM_SANG, ALRM_HEMAT,
+                       ALRM_ABDOM, ALRM_LETAR, ALRM_HEPAT, ALRM_LIQ, GRAV_PULSO,
+                       GRAV_CONV, GRAV_ENCH, GRAV_INSUF, GRAV_TAQUI, GRAV_EXTRE,
+                       GRAV_HIPOT, GRAV_HEMAT, GRAV_MELEN, GRAV_METRO, GRAV_SANG, 
+                       GRAV_AST, GRAV_MIOC, GRAV_CONSC, GRAV_ORGAO),
+                  ~case_when(.== 1 ~ 1, T ~ 0)) %>% 
+        mutate_at(vars(starts_with("DT")), as.Date, format = "%Y-%m-%d") %>% 
+        separate(NU_IDADE_N, into = c('tipo', 'idade'), sep = 2, convert = TRUE) %>% 
+        mutate(CS_SEXO = as.factor(replace(CS_SEXO, CS_SEXO == "I", NA)),
+               CS_RACA = as.factor(replace(CS_RACA, CS_RACA == "9", NA)),
+               idade = case_when(tipo == 40 ~ idade, tipo == 20 | tipo == 30 ~ 0),
+               fx_et = case_when(idade < 10 ~ "< 10",
+                                            idade >=10 & idade < 20 ~ "10 - 19",
+                                            idade >= 20 & idade < 60 ~ "20 - 59",
+                                            idade >= 60 & idade < 80 ~ "60 - 79",
+                                            idade >= 80 ~ ">= 80"),
+               fx_et = factor(fx_et, levels = c("< 10", "10 - 19", "20 - 59", "60 - 79", ">= 80"))) %>% 
+          mutate(fx_et_p = case_when(
+                           idade > 0 & idade < 1 ~ "< 1",
+                           idade >= 1 & idade < 5 ~ "1 - 4",
+                           idade >= 5 & idade < 10 ~ "5 - 9",
+                           idade >= 10 & idade < 15 ~ "10 - 14",
+                           idade >= 15 & idade < 20 ~ "15 - 19",
+                           idade >= 20 & idade < 35 ~ "20 - 34",
+                           idade >= 35 & idade < 50 ~ "35 - 49",
+                           idade >= 50 & idade < 65 ~ "50 - 64",
+                           idade >= 65 & idade < 80 ~ "65 - 79",
+                           idade >= 80 ~ "> 80")) %>% 
+         mutate(fx_et_p = factor(fx_et_p, levels = c("< 1", "1 - 4", "5 - 9", "10 - 14", "15 - 19",
+                                          "20 - 34", "35 - 49", "50 - 64", "65 - 79", "> 80"))) %>% 
+         mutate(CS_SEXO = droplevels(dplyr::recode(CS_SEXO,
+                             "F" = "Feminino",
+                             "M" = "Masculino")),
+                sexo = factor(CS_SEXO, levels = c("Feminino","Masculino"))) %>% 
+         mutate(racaCor = droplevels(dplyr::recode(CS_RACA,
+                                 "1" = "Branca",
+                                 "2" = "Preta",
+                                 "3" = "Amarela",
+                                 "4" = "Parda",
+                                 "5" = "Indígena"))) %>%
+         left_join(pop_municipio, by = c("ID_MN_RESI" = "cod")) %>%  # join do banco de população em cada município de residência
+         mutate(nome_rs = str_to_title(nome_rs),
+               nome_rs = sub("De", "de", nome_rs),
+               nome_rs = sub("Do", "do", nome_rs),
+               nome_rs = sub("Da", "da", nome_rs),
+               nome_rs = sub("Drs Ii", "DRS II", nome_rs),
+               nome_rs = sub("IIi", "III", nome_rs),
+               nome_rs = sub("Abc", "ABC", nome_rs),
+               gve_nome = str_to_title(gve_nome),
+               gve_nome = sub("De", "de", gve_nome),
+               gve_nome = sub("Do", "do", gve_nome),
+               gve_nome = sub("Da", "da", gve_nome))
+    
+  return(dados_transformados)
+}
+
+# dengon
+dengue <- aplicar_transformacoes(dengon) # %>% 
+    # mutate(SOROTIPO = case_when(NU_NOTIFIC == "3849182" | NU_NOTIFIC == "3717913" ~ NA_character_, T ~ SOROTIPO)) #correcao
+
+dengue_ano_anterior <- historico_dengue %>% 
+        filter(year(DT_SIN_PRI) == ano - 1)
+
+# chikon
+chikungunya <- aplicar_transformacoes(chikon) %>% 
+  mutate(CLASSI_FIN = case_when(NU_NOTIFIC == "4564523" ~ NA_character_, T ~ CLASSI_FIN),
+         classificacao = case_when(NU_NOTIFIC == "4564523" ~ "Em investigação", T ~ classificacao),
+         EVOLUCAO = case_when(NU_NOTIFIC == "4564523" ~ "4", T ~ EVOLUCAO),
+         evolucao = case_when(NU_NOTIFIC == "4564523" ~ "Óbito em investigação", T ~ evolucao))#correcao
+
+chikungunya_ano_anterior <- historico_chikungunya %>% 
+        filter(DT_SIN_PRI >= "2023-01-01")
+
+# zikanet
+
+Zika <- zikanet %>% 
+        drop_na(DT_SIN_PRI) %>% 
+        filter(DT_SIN_PRI >= as.Date(primeiro_dia_ano) &
+                       DT_SIN_PRI <= as.Date(data_final)) %>% 
+        filter(str_detect(ID_MN_RESI, "^35")) %>%
+        mutate(classificacao = recode(CLASSI_FIN,
+                                      "1" = "Confirmado",
+                                      "2" = "Descartado",
+                                      "8"  = "Inconclusivo")) %>% 
+        mutate(classificacao = fct_na_value_to_level(classificacao, level = "Em investigação")) %>% 
+        mutate(evolucao = recode(EVOLUCAO,
+                                 "1" = "Cura",
+                                 "2" = "Óbito por Zika",
+                                 "3" = "Óbito por outras causas",
+                                 "9" = "Ignorado")) %>% 
+                mutate(evolucao = fct_na_value_to_level(evolucao, level = "Ignorado")) %>% 
+        mutate_at(vars(starts_with("DT")), as.Date, format = "%Y-%m-%d") %>% 
+        separate(NU_IDADE_N, into = c('tipo', 'idade'), sep = 2, convert = TRUE) %>% 
+        mutate(CS_SEXO = as.factor(replace(CS_SEXO, CS_SEXO == "I", NA)),
+               CS_RACA = as.factor(replace(CS_RACA, CS_RACA == "9", NA)),
+               CS_GESTANT = as.factor(replace(CS_GESTANT, CS_GESTANT == "9", NA)),
+               idade = case_when(tipo == 40 ~ idade, tipo == 20 | tipo == 30 ~ 0),
+               fx_et = case_when(idade < 10 ~ "< 10",
+                                            idade >=10 & idade < 20 ~ "10 - 19",
+                                            idade >= 20 & idade < 60 ~ "20 - 59",
+                                            idade >= 60 & idade < 80 ~ "60 - 79",
+                                            idade >= 80 ~ ">= 80"),
+               fx_et = factor(fx_et, levels = c("< 10", "10 - 19", "20 - 59", "60 - 79", ">= 80"))) %>% 
+          mutate(fx_et_p = case_when(
+                           idade > 0 & idade < 1 ~ "< 1",
+                           idade >= 1 & idade < 5 ~ "1 - 4",
+                           idade >= 5 & idade < 10 ~ "5 - 9",
+                           idade >= 10 & idade < 15 ~ "10 - 14",
+                           idade >= 15 & idade < 20 ~ "15 - 19",
+                           idade >= 20 & idade < 35 ~ "20 - 34",
+                           idade >= 35 & idade < 50 ~ "35 - 49",
+                           idade >= 50 & idade < 65 ~ "50 - 64",
+                           idade >= 65 & idade < 80 ~ "65 - 79",
+                           idade >= 80 ~ "> 80")) %>% 
+         mutate(fx_et_p = factor(fx_et_p, levels = c("< 1", "1 - 4", "5 - 9", "10 - 14", "15 - 19",
+                                          "20 - 34", "35 - 49", "50 - 64", "65 - 79", "> 80"))) %>% 
+         mutate(CS_SEXO = droplevels(dplyr::recode(CS_SEXO,
+                             "F" = "Feminino",
+                             "M" = "Masculino")),
+                sexo = factor(CS_SEXO, levels = c("Feminino","Masculino"))) %>% 
+         mutate(racaCor = droplevels(dplyr::recode(CS_RACA,
+                                 "1" = "Branca",
+                                 "2" = "Preta",
+                                 "3" = "Amarela",
+                                 "4" = "Parda",
+                                 "5" = "Indígena"))) %>%
+        mutate(CS_GESTANT =  droplevels(recode(CS_GESTANT,
+                                 "1" = "Sim - 1º trimestre",
+                                 "2" = "Sim - 2º trimestre",
+                                 "3" = "Sim - 3º trimestre",
+                                 "4" = "Sim - Idade gestacional ignorada",
+                                 "5" = "Não",
+                                 "6" = "Não se aplica"))) %>%
+         left_join(pop_municipio, by = c("ID_MN_RESI" = "cod")) %>%  # join do banco de população em cada município de residência
+         mutate(nome_rs = str_to_title(nome_rs),
+               nome_rs = sub("De", "de", nome_rs),
+               nome_rs = sub("Do", "do", nome_rs),
+               nome_rs = sub("Da", "da", nome_rs),
+               nome_rs = sub("Drs Ii", "DRS II", nome_rs),
+               nome_rs = sub("IIi", "III", nome_rs),
+               nome_rs = sub("Abc", "ABC", nome_rs),
+               gve_nome = str_to_title(gve_nome),
+               gve_nome = sub("De", "de", gve_nome),
+               gve_nome = sub("Do", "do", gve_nome),
+               gve_nome = sub("Da", "da", gve_nome))
+
+Zika <- Zika %>% 
+  mutate(CLASSI_FIN = case_when(NU_NOTIFIC == "8503463" ~ "2",
+                                NU_NOTIFIC == "3494737" ~ "2", 
+                                #NU_NOTIFIC == "3494737" ~ NA_character_, 
+                                T ~ CLASSI_FIN)) #correcao
+
+Zika_ano_anterior <- historico_zika %>% 
+        filter(DT_SIN_PRI >= "2023-01-01")
+
+```
+
+## Introdução
+
+As arboviroses urbanas, especificamente dengue, chikungunya e Zika, são doenças infecciosas transmitidas pelo mosquito *Aedes aegypti*, observadas com maior frequência em regiões de clima tropical e subtropical. Com significativas implicações à saúde pública tanto em escala nacional quanto no contexto específico do estado de São Paulo (ESP), tais doenças apresentam-se como um desafio contínuo.
+
+O presente boletim descreve os dados relativos às notificações das arboviroses urbanas no ESP, registradas no Sistema de Informação de Agravos de Notificação (SINAN) Online para dengue e chikungunya e no SINAN Net para Zika, no período compreendido entre as semanas epidemiológicas (SE) 1 a `r SE_final` (`r primeiro_dia_barra` a `r data_final_barra`), com objetivo de fornecer um panorama atualizado das arboviroses urbanas no ESP. Serão disponibilizados os números de casos notificados, confirmados e sob investigação, a distribuição espacial das taxas de incidência, dos óbitos e dos sorotipos identificados por região de saúde (RS), além da distribuição dos casos e óbitos confirmados segundo faixa etária e sexo, sinais/sintomas e condições pré-existentes. Adicionalmente, serão apresentados o diagrama de controle para dengue e a curva epidemiológica por SE para cada um dos agravos. **Dados provisórios e sujeitos à atualização**.
+
+Informações sobre o [Manejo Clínico das Arboviroses - 2023](https://portal.saude.sp.gov.br/resources/cve-centro-de-vigilancia-epidemiologica/areas-de-vigilancia/doencas-de-transmissao-por-vetores-e-zoonoses/manejo-clinico-arboviroses/manejo_clinico_06_02_23_1_2.pdf), o [Plano Estadual de Contingência das Arboviroses Urbanas - 2023/2024](https://portal.saude.sp.gov.br/resources/cve-centro-de-vigilancia-epidemiologica/areas-de-vigilancia/doencas-de-transmissao-por-vetores-e-zoonoses/doc/arboviroses/plano_contingencia_23_2.11) e as [Diretrizes para a Prevenção e Controle das Arboviroses Urbanas no Estado de São Paulo - revisão 2023](http://www.saude.sp.gov.br/resources/cve-centro-de-vigilancia-epidemiologica/areas-de-vigilancia/doencas-de-transmissao-por-vetores-e-zoonoses/doc/arboviroses/revisao_diretrizes_arvobiroses2023_08122022.pdf) podem ser consultadas nos links e estão disponíveis na página do Centro de Vigilância Epidemiológica "Prof. Alexandre Vranjac" (CVE/CCD/SESP-SP). 
+
+```{r child= here::here("dengue.Rmd")}
+```
+
+```{r child= here::here("chikungunya_2024.Rmd")} 
+```
+
+```{r child= here::here("zika.Rmd")} 
+```

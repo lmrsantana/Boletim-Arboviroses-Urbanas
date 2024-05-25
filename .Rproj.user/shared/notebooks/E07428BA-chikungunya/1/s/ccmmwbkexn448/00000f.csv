@@ -1,0 +1,15 @@
+"0","tm_shape(casos_chik) +
+  tm_polygons(c(""inc_q""), lwd = .3, style = ""cat"",
+              palette =c(""#52B69a"", ""#76c893"", ""#99d98c"",""#b5e48c"", ""#d9ed92"", 'gray70'),
+              #palette =c(""#a50026"", ""#d73027"", ""#f46d43"", ""#fdae61"", ""#fee08b"", ""#f0f0f0""),
+              popup.vars=c(""Número de casos""=""casos"", ""Incidência x100.000""=""incid"", ""Número de óbitos"" = ""obitos""),
+              title=c(""Incidência x100.000"")) +
+        tm_shape(obitos_chik) +
+     tm_text(text = ""obitos"", col = ""#ffffff"") +
+  tm_shape(rs) +
+  tm_borders(lwd = .1, col = ""gray90"") +
+  tm_credits(paste0(""Fonte: SINAN (atualizado em "", format(dt_atualizacao, '%d/%m/%Y'), "")"")) +
+  tm_view(set.view = c(-48.65, -22.4, 6.5))
+"
+"2","Credits not supported in view mode.
+"

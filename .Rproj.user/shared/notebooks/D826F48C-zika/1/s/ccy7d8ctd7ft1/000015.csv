@@ -1,0 +1,14 @@
+"0","caract_tabela_zikv_gestantes <- tabela_zikv_gestantes %>% 
+  filter(ano == 2024) %>% 
+  mutate(notificacao = case_when(notificacao == ""#C51620"" ~ ""aumento"",
+                                     notificacao == ""#2D708EFF"" ~ ""redução"",
+                                     T ~ ""inalteração""),
+         confirmacao = case_when(confirmacao == ""#C51620"" ~ ""aumento"",
+                                     confirmacao == ""#2D708EFF"" ~ ""redução"",
+                                     T ~ ""inalteração""),
+         mortes = case_when(mortes == ""#C51620"" ~ ""aumento"",
+                                   mortes == ""#2D708EFF"" ~ ""redução"",
+                                     T ~ ""inalteração""))
+"
+"2","Erro: objeto 'tabela_zikv_gestantes' não encontrado
+"

@@ -1,0 +1,703 @@
+
+
+```{r , echo=FALSE, warning = FALSE, message = FALSE}
+
+notificados_ano_chik <- format(nrow(chikungunya), big.mark = ".", decimal.mark = ",")
+n_municipios_ano_chik <- n_distinct(chikungunya$mun)
+
+confirmados_chik <- chikungunya %>% 
+  filter(CLASSI_FIN =="13") 
+ 
+confirmados_ano_chik <- format(nrow(confirmados_chik), big.mark = ".", decimal.mark = ",")
+
+incidencia_ano_chik <- format(round(nrow(confirmados_chik)/sum(pop_municipio$pop2022)*100000, 1), big.mark = ".", decimal.mark = ",")
+
+media_ano_chik <- confirmados_chik %>% 
+  group_by(DT_SIN_PRI) %>% 
+  count() %>%
+  ungroup() %>% 
+  summarise(media= format(round(mean(n, na.rm = T)), big.mark = ".", decimal.mark = ","))
+
+ultimas_4_sem_chik <- confirmados_chik %>% 
+  filter(DT_SIN_PRI >= as.Date(data_inicio))
+
+confirmados_4sem_chik <- format(nrow(ultimas_4_sem_chik), big.mark = ".", decimal.mark = ",")
+
+n_municipios_4sem_chik <- n_distinct(ultimas_4_sem_chik$mun)
+
+media_4sem_chik <- ultimas_4_sem_chik %>% 
+  group_by(DT_SIN_PRI) %>% 
+  count() %>%
+  ungroup() %>% 
+  summarise(media= format(round(mean(n, na.rm = T)), big.mark = ".", decimal.mark = ","))
+
+notificados_atual_chik <- nrow(chikungunya) 
+
+confirmados_atual_chik <- chikungunya %>% 
+  filter(CLASSI_FIN =="13") %>% 
+  nrow
+
+investigacao_atual_chik <- chikungunya %>% 
+  filter(is.na(CLASSI_FIN)) %>% 
+  nrow
+
+obitos_atual_chik <- chikungunya %>% 
+  filter(CLASSI_FIN =="13", EVOLUCAO == 2) %>% 
+  nrow
+
+notificados_ano_anterior_chik <- nrow(chikungunya_ano_anterior) 
+
+confirmados_ano_anterior_chik <- chikungunya_ano_anterior %>% 
+  filter(CLASSI_FIN =="13") %>% 
+  nrow
+
+obitos_ano_anterior_chik <- chikungunya_ano_anterior %>% 
+  filter(CLASSI_FIN =="13", EVOLUCAO == 2) %>% 
+  nrow
+
+notificados_ano_anterior_parcial_chik <- chikungunya_ano_anterior %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  nrow() 
+
+confirmados_ano_anterior_parcial_chik <- chikungunya_ano_anterior %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  filter(CLASSI_FIN =="13") %>% 
+  nrow
+
+obitos_ano_anterior_parcial_chik <- chikungunya_ano_anterior %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  filter(CLASSI_FIN =="13", EVOLUCAO == 2) %>% 
+  nrow
+
+tabela_chik <- data.frame(ano = c(year(min(chikungunya_ano_anterior$DT_NOTIFIC)), year(min(chikungunya_ano_anterior$DT_NOTIFIC)),    year(max(chikungunya$DT_NOTIFIC))),
+                     periodo = c("SE 1 - 52", paste0("SE 1 - ", SE_final$SE), paste0("SE 1 - ", SE_final$SE)),
+                     notificados = c(notificados_ano_anterior_chik, notificados_ano_anterior_parcial_chik, notificados_atual_chik),
+                     investigacao = c(".", ".", format(investigacao_atual_chik, big.mark = ".", decimal.mark = ",")),
+                     confirmados = c(confirmados_ano_anterior_chik, confirmados_ano_anterior_parcial_chik, confirmados_atual_chik),
+                     obitos = c(obitos_ano_anterior_chik, obitos_ano_anterior_parcial_chik, obitos_atual_chik)
+) %>% 
+
+        mutate(notificacao = case_when(ano == year(max(chikungunya$DT_NOTIFIC)) & notificados > lag(notificados, default = NA) ~ "2",
+                                         ano == year(max(chikungunya$DT_NOTIFIC)) & notificados < lag(notificados, default = NA) ~ "0"),
+               confirmacao = case_when(ano == year(max(chikungunya$DT_NOTIFIC)) & confirmados > lag(confirmados, default = NA) ~ "2",
+                                           ano == year(max(chikungunya$DT_NOTIFIC)) & confirmados < lag(confirmados, default = NA) ~ "0"),
+               mortes = case_when(ano == year(max(chikungunya$DT_NOTIFIC)) & obitos > lag(obitos, default = NA) ~ "2",
+                                         ano == year(max(chikungunya$DT_NOTIFIC)) & obitos < lag(obitos, default = NA) ~ "0")) %>% 
+        mutate(notificacao = case_when(notificacao == 2 ~ "#C51620",
+                                         notificacao == 0 ~ "#2D708EFF",
+                                         T ~ "white"),
+               confirmacao = case_when(confirmacao == 2 ~ "#C51620", 
+                                       confirmacao == 0 ~ "#2D708EFF",
+                                       T ~ "white"),
+               mortes = case_when(mortes == 2 ~ "#C51620", 
+                                  mortes == 0 ~ "#2D708EFF",
+                                  T ~ "white")) %>% 
+        mutate(notificados = format(notificados, big.mark = ".", decimal.mark = ","),
+               confirmados = format(confirmados, big.mark = ".", decimal.mark = ","),
+               obitos = format(obitos, big.mark = ".", decimal.mark = ","))
+
+caract_tabela_chik <- tabela_chik %>% 
+  filter(ano == 2024) %>% 
+  mutate(notificacao = case_when(notificacao == "#C51620" ~ "aumento",
+                                     notificacao == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"),
+         confirmacao = case_when(confirmacao == "#C51620" ~ "aumento",
+                                     confirmacao == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"),
+         mortes = case_when(mortes == "#C51620" ~ "aumento",
+                                   mortes == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"))
+                             
+```
+<br/>
+<br/>
+
+## Chikungunya
+
+De `r format(as.Date(primeiro_dia_ano), '%d de %B')` até `r data_final_SE` (SE `r SE_final`), foram notificados `r notificados_ano_chik` casos de chikungunya no SINAN, residentes em `r n_municipios_ano_chik` municípios do ESP. Do total de casos notificados em `r year(primeiro_dia_ano)`, `r confirmados_ano_chik` foram confirmados, com média de `r media_ano_chik` confirmações diárias e incidência acumulada de `r incidencia_ano_chik` casos por 100.000 habitantes no período. Nas últimas quatro semanas epidemiológicas (SE `r SE_inicio` a `r SE_final`), período que vai de `r data_inicio_SE` a `r data_final_SE`, foram confirmados `r confirmados_4sem_chik` casos em `r n_municipios_4sem_chik` municípios.
+
+Em comparação ao mesmo período (SE 1 a `r SE_final`) do ano de `r ano - 1`, observou-se `r caract_tabela_chik$notificacao` do número de notificações, `r caract_tabela_chik$confirmacao` das confirmações e `r caract_tabela_chik$mortes` dos óbitos por chikungunya (**Tabela 4**).
+
+<br/>
+
+**_Tabela 4_ - Número de casos notificados, confirmados e óbitos por chikungunya, SE 1 a `r SE_final$SE`, `r ano - 1` e `r ano`, estado de São Paulo**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.height = 4, fig.width = 12, fig.align = "center"}
+
+left_border<-cell_style(border_color = "#f2f2f2",border_style = "solid",border_width = "1px 0px 0px 0px")
+right_border<-cell_style(border_color = "#f2f2f2",border_style = "solid",border_width = "1px 0px 2px 0px")
+
+tabela_anos_chik <- reactable(
+        tabela_chik,
+        theme = reactableTheme(
+                style = list(fontSize = 14, padding = "0px 0px 0px 0px"),
+                groupHeaderStyle = list(fontWeight = "bold")
+        ),
+        fullWidth = FALSE,
+        defaultColDef = colDef(vAlign = "center", width = 120),
+        columnGroups = list(
+                colGroup(name = "", columns = c("ano", "periodo", "notificados", "investigacao", "confirmados", "obitos"))
+                
+        ),
+        columns = list(
+                notificacao = colDef(show=FALSE),
+                confirmacao = colDef(show=FALSE),
+                mortes = colDef(show=FALSE),
+                ano = colDef(name = "Ano",
+                             sticky="left",
+                             width=50,
+                             style='background-color:#FCFCFC;'),
+                periodo = colDef(name = "Período", 
+                                 style = cell_style(
+                                         border_color = "#f2f2f2",
+                                         border_style = "solid",
+                                         border_width = "1px 0px 0px 2px",
+                                         vertical_align = "center",
+                                         horizontal_align = "center"),
+                                 align = "center"),
+                notificados = colDef(name = "Notificados", 
+                                     style = cell_style(
+                                             border_color = "#f2f2f2",
+                                             border_style = "solid",
+                                             border_width = "1px 0px 0px 2px",
+                                             vertical_align = "center",
+                                             horizontal_align = "center"),
+                                     align = "right",
+                                     cell = function(value, index){
+                                             color = tabela_chik$notificacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_chik$notificacao[index] == "#C51620","arrow-up","arrow-down")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                     span(value, style=glue("text-align:right;display:inline-block;width:70px;color:black;"))
+                                             )
+                                     }),
+                investigacao = colDef(name = "Investigação", 
+                                 style = cell_style(
+                                         border_color = "#f2f2f2",
+                                         border_style = "solid",
+                                         border_width = "1px 0px 0px 2px",
+                                         vertical_align = "center",
+                                         horizontal_align = "center"),
+                                 align = "right"),
+                
+                confirmados = colDef(name = "Confirmados",
+                                     style = cell_style(
+                                             border_color = "#f2f2f2",
+                                             border_style = "solid",
+                                             border_width = "1px 0px 0px 2px",
+                                             vertical_align = "center",
+                                             horizontal_align = "center"),
+                                     align = "right", 
+                                     cell = function(value, index){
+                                             color = tabela_chik$confirmacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_chik$confirmacao[index] == "#C51620","arrow-up","arrow-down")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                     span(value, style=glue("text-align:right;display:inline-block;width:70px;color:black;"))
+                                             )
+                                     }),
+                obitos = colDef(name = "Óbitos",
+                                style = cell_style(
+                                        border_color = "#f2f2f2",
+                                        border_style = "solid",
+                                        border_width = "1px 0px 0px 2px",
+                                        vertical_align = "center",
+                                        horizontal_align = "center"),
+                                align = "right", 
+                                cell = function(value, index){
+                                        color = tabela_chik$mortes[index]
+                                        value = value
+                                        icon = ifelse(tabela_chik$mortes[index] == "#C51620","arrow-up","arrow-down")
+                                        tagList(
+                                                span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                span(value, style=glue("text-align:right;display:inline-block;width:45px;color:black;"))
+                                        )
+                                }))
+        
+) %>%
+        reactablefmtr::google_font(font_family = "IBM Plex Sans", font_weight = c(400, 600)) %>% 
+        add_source(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")"), font_size = 10, font_color = "#737373")
+  
+tabela_anos_chik
+
+```
+
+```{r , echo=FALSE, warning = FALSE, message = FALSE}
+
+# Criando o objeto {`chikungunya_atual`} para o ano corrente
+chikungunya_atual <- confirmados_chik %>% 
+        mutate(semana_epi = floor_date(DT_SIN_PRI, "week")) %>% 
+        group_by(semana_epi) %>% 
+        summarise(casos = n()) %>% 
+        mutate(semana_epi = epiweek(semana_epi)) # Criando uma nova coluna chamada 'sem_epi', referente à semana epidemiológica
+
+# Contagem - por semana epidemiológica data_sintomas, numero de casos
+chikungunya_stat <- historico_chikungunya  %>% 
+        filter(CLASSI_FIN == "13",
+               DT_SIN_PRI >= "2023-01-01") %>% 
+        mutate(semana_epi = floor_date(DT_SIN_PRI, "week")) %>% 
+        group_by(semana_epi) %>% 
+        summarise(casos = n()) %>% 
+        mutate(semana_epi = epiweek(semana_epi))
+
+max_casos_atual_chik <- chikungunya_atual %>% 
+  filter(casos == max(casos))
+max_casos_anterior_chik <- chikungunya_stat %>% 
+  filter(casos == max(casos))
+
+pico_chik <- max_casos_atual_chik %>% 
+  mutate(temporalidade = case_when(semana_epi > max_casos_anterior_chik$semana_epi ~ "mais tardiamente e",
+                                   semana_epi == max_casos_anterior_chik$semana_epi ~ "coincidindo temporalmente e",
+                                   semana_epi < max_casos_anterior_chik$semana_epi ~ "mais precocemente e"
+                                   ),
+    interpretacao = case_when(casos > max_casos_anterior_chik$casos ~ "acima do observado",
+                                   casos == max_casos_anterior_chik$casos ~ "igual ao observado",
+                                   casos < max_casos_anterior_chik$casos ~ "abaixo do observado")
+         )
+
+```
+
+<br/>
+
+Até o momento, o pico de ocorrência de casos confirmados de chikungunya em `r ano` ocorreu na SE `r max_casos_atual_chik$semana_epi`, `r pico_chik$temporalidade` `r pico_chik$interpretacao` no ano anterior (**Figura 9**). Como a entrada dos dados no SINAN pode ser afetada pelo tempo até sua digitação e pelo intervalo entre o início dos sintomas e a busca por serviços de saúde, a incidência das semanas epidemiológicas mais recentes deve ser interpretada com cautela.
+
+<br/>
+
+**_Figura 9_ - Série temporal dos casos confirmados de chikungunya, SE 1 a `r SE_final` de `r ano`, estado de São Paulo**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.height = 4, fig.width = 12, fig.align = "center"}
+
+# Criando o gráfico série temporal 
+# gráfico -----------------------------------------------------------------
+
+plot_ly() %>%
+        add_lines(data = chikungunya_stat, x = ~semana_epi, y = ~casos, color = I("#52B69a"),
+                  name = ~paste("Número de casos", ano-1),
+                  text = ~paste("SE:", semana_epi, "<br>Número de casos", ano, ":", format(casos, big.mark = ".", decimal.mark = ",")),
+                  hoverinfo = "text",
+                  textposition = "none") %>%
+        add_lines(data = chikungunya_atual, x = ~semana_epi, y = ~casos, color = I("#b5e48c"),
+                  name = ~paste("Número de casos", ano),
+                  text = ~paste("SE:", semana_epi, "<br>Número de casos", ano, ":", format(casos, big.mark = ".", decimal.mark = ",")),
+                  hoverinfo = "text",
+                  textposition = "none") %>%
+        layout(xaxis = list(title = "Semana Epidemiológica"),
+               yaxis = list(title = "Número de casos"),
+               legend = list(x = 0.6, y = 0.9),
+               annotations = list(
+                       x = 1,
+                       y = -0.1,
+                       text = paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")"),
+                       showarrow = FALSE,
+                       xref = "paper",
+                       yref = "paper",
+                       xanchor = "right",
+                       yanchor = "middle",
+                       xshift = 0,
+                       yshift = -2,
+                       font = list(size = 8)
+               )
+        )
+
+```
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE}
+
+chikungunya_rs <- confirmados_chik %>%
+  group_by(cod_rs, nome_rs) %>% 
+  summarise(casos = n()) %>% 
+  ungroup() %>% 
+  left_join(pop_rs, by = c("cod_rs")) %>%
+  mutate(casos = replace_na(casos, 0)) %>% 
+  mutate(incidencia = round(casos/pop_rs*100000, 2)) %>% 
+  mutate(inc_q = case_when(incidencia >= 100 ~ "100 e +",
+                           incidencia >= 50 & incidencia < 100 ~ "50 - 100",
+                           incidencia >= 10 & incidencia < 50 ~ "10 - 50",
+                           incidencia >= 1 & incidencia < 10 ~ "1 - 10",
+                           incidencia > 0 & incidencia < 1 ~ "até 1", T ~ "sem confirmação")) %>% 
+  mutate(inc_q = factor(inc_q, levels = c("100 e +", "50 - 100", "10 - 50", "1 - 10", "até 1", "sem confirmação"))
+         ) %>% 
+        mutate(cod_rs = as.numeric(cod_rs))
+
+top3casos_rs_chik <- chikungunya_rs %>%
+  drop_na(casos) %>% 
+  slice_max(casos, n = 3)
+
+top_incid_rs_chik <- chikungunya_rs %>%
+  filter(incidencia >= 30) %>% 
+  arrange(desc(incidencia)) %>% 
+  distinct(nome_rs.x, .keep_all = T) 
+
+obitos_rs_chik <- confirmados_chik %>%
+  filter(EVOLUCAO == 2) %>% 
+  group_by(cod_rs, nome_rs) %>% 
+  summarise(obitos = n()) %>% 
+  ungroup() %>% 
+  left_join(pop_rs, by = c("cod_rs")) %>%
+  mutate(obitos = replace_na(obitos, 0),
+         obitos = round(obitos)) %>% 
+        mutate(cod_rs = as.numeric(cod_rs))
+
+top2obitos_rs_chik <- obitos_rs_chik %>%
+  drop_na(obitos) %>% 
+  slice_max(obitos, n = 2)
+
+```
+
+<br/>
+
+As incidências acumuladas de casos confirmados de chikungunya em `r ano` mais elevadas foram observadas nas RS `r knitr::combine_words(top_incid_rs_chik$nome_rs, and = " e ")`, respectivamente. As RS com mais óbitos foram `r knitr::combine_words(top2obitos_rs_chik$nome_rs, and = " e ")`. O coeficiente de incidência (x 100.000 habitantes), o número de casos e o número de óbitos por RS de residência podem ser consultados na **Figura 10** clicando na região de interesse. Na **Tabela 5**, também foram disponibilizados coeficiente de incidência, número de casos e variação percentual em quatro semanas da média de casos confirmados de chikungunya, segundo município de residência.
+
+<br/>
+
+**_Figura 10_ - Coeficiente de incidência de casos confirmados de chikungunya (x 100.000 habitantes) e número de óbitos segundo RS de residência, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+casos_chik <- left_join(rs, chikungunya_rs, by = c("cod_RS" = "cod_rs")) %>% 
+  left_join(obitos_rs_chik, by = c("cod_RS" = "cod_rs")) %>% 
+  select(nome_rs.x.x, incidencia, casos, inc_q, obitos) %>% 
+  mutate(casos = replace_na(casos, 0),
+         casos = format(casos, big.mark = ".", decimal.mark = ","),
+         incidencia = replace_na(incidencia, 0),
+         incid = format(incidencia, big.mark = ".", decimal.mark = ","),
+         obitos = replace_na(obitos, 0),
+         obitos = round(obitos),
+         inc_q = case_when(is.na(inc_q) ~ factor("sem confirmação"), T ~ factor(inc_q))
+         ) %>%
+  mutate(inc_q = factor(inc_q, levels = c("100 e +", "50 - 100", "10 - 50", "1 - 10", "até 1", "sem confirmação")))
+
+obitos_chik <- left_join(rs, obitos_rs_chik, by = c("cod_RS" = "cod_rs")) %>% 
+  select(nome_rs.x, obitos)
+
+# Configurar sf_use_s2
+sf_use_s2(FALSE)
+
+# Configurar o modo de visualização e exibir o mapa
+
+tmap_mode("view") 
+
+tm_shape(casos_chik) +
+  tm_polygons(c("inc_q"), lwd = .3, style = "cat",
+              palette =c("#52B69a", "#76c893", "#99d98c","#b5e48c", "#d9ed92", 'gray70'),
+              #palette =c("#a50026", "#d73027", "#f46d43", "#fdae61", "#fee08b", "#f0f0f0"),
+              popup.vars=c("Número de casos"="casos", "Incidência x100.000"="incid", "Número de óbitos" = "obitos"),
+              title=c("Incidência x100.000")) +
+        tm_shape(obitos_chik) +
+     tm_text(text = "obitos", col = "#ffffff") +
+  tm_shape(rs) +
+  tm_borders(lwd = .1, col = "gray90") +
+  tm_credits(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")")) +
+  tm_view(set.view = c(-48.65, -22.4, 6.5))
+
+```
+
+<br/>
+
+**_Tabela 5_ - Coeficiente de incidência, número de casos e percentual de variação em 4 semanas dos casos confirmados de chikungunya, segundo município de residência, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+variacao_final_chik <- ultimas_4_sem_chik %>%
+  group_by(mun, epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  summarise(n = n()) %>% 
+  group_by(mun) %>% 
+  summarise(media_final = mean(n, na.rm = T))
+
+variacao_inicial_chik <- confirmados_chik %>%
+  filter(DT_SIN_PRI >= as.Date(data_inicio) - weeks(4) & DT_SIN_PRI <= (as.Date(data_final) - weeks(4))) %>% 
+  group_by(mun, epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  summarise(n = n()) %>% 
+  group_by(mun) %>% 
+  summarise(media_inicial = mean(n, na.rm = T)) 
+
+confirmados_mun_chik <- confirmados_chik %>% 
+  group_by(mun, gve_nome) %>% 
+  summarise(casos = n(),
+            casos = replace_na(casos, 0),
+            incidencia = round(casos/pop2022*100000)) %>% 
+  distinct()
+
+tabela_casos_chik <- full_join(variacao_final_chik, variacao_inicial_chik, "mun") %>% 
+    mutate(media_inicial = replace_na(media_inicial, 0),
+           media_final = replace_na(media_final, 0),
+           variacao = ((media_final/media_inicial) - 1)*100) %>% 
+  right_join(confirmados_mun_chik, "mun") %>% 
+  mutate(variacao = replace_na(variacao, 0),
+         variacao = replace(variacao, is.infinite(variacao), 
+NA),
+         classif_var = case_when(variacao < 0 ~ 0,
+                                 variacao > 0 ~ 1)) %>%
+  select(gve_nome, mun, incidencia, casos, variacao, classif_var) %>% 
+        mutate(variacao = case_when(classif_var == 1 ~ paste0("+", round(variacao), "%"),
+               classif_var == 0 ~ paste0(round(variacao), "%"), T ~ "-")
+                       )
+
+periodo_final_chik <- ultimas_4_sem_chik %>%
+        mutate(DT_SIN_PRI = format(floor_date(DT_SIN_PRI, "week"), '%d/%m/%Y'))
+
+periodo_inicial_chik <- confirmados_chik %>%
+  filter(DT_SIN_PRI >= as.Date(data_inicio) - weeks(4) & DT_SIN_PRI <= (as.Date(data_final) - weeks(4))) %>% 
+        mutate(DT_SIN_PRI = format(floor_date(DT_SIN_PRI, "week"), '%d/%m/%Y'))
+
+datatable(tabela_casos_chik,
+          class = 'compact',
+          rownames = FALSE,
+          caption = htmltools::tags$caption(style = 'caption-side: bottom; text-align: left; color:black; font-size:80% ;','¹ Variação entre médias semanais de casos confirmados das semanas epidemiológicas de', (paste0((SE-8), " a ", (SE-5), " e de ", (SE-4), " a ", (SE-1), ". Fonte: SINAN, ", format(dt_atualizacao, '%d/%m/%Y')))),
+          extensions = c("Buttons", 'Scroller'),
+          colnames = c("GVE", "Município", "Incidência x100.000", "Número de casos confirmados", "% de variação em 4 semanas¹", " "),
+          filter = 'top',
+          options = list(columnDefs = list(list(targets = "classif_var", visible = FALSE),
+                                           list(className = 'dt-center', targets = c("incidencia", "casos", "variacao"))), 
+                         deferRender = TRUE, scrollY = 200, scroller = TRUE,
+  pageLength = 15,
+  
+  dom = 'Bfrtip',
+  buttons = c('excel', 'pdf'))) %>% 
+    formatStyle(
+     'incidencia',
+    color = styleInterval(c(0), c('black', '#fff')),
+    backgroundColor = styleInterval(c(0, 1, 10, 50, 100), c('#f0f0f0', "#d9ed92", "#b5e48c", "#99d98c", "#76c893", "#52B69a"))
+                                    #c('#f0f0f0', "#fee08b", "#fdae61", "#f46d43", "#d73027", "#a50026"))   
+  ) %>% 
+    formatStyle(
+    "variacao","classif_var", 
+    color = '#fff',
+    backgroundColor = styleEqual(c(0,1), c("#52B69a", "#b5e48c")
+                                 #c("#f46d43", "#a50026")
+                                 
+                                 ))
+
+```
+
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+sexo_chik <- confirmados_chik %>%
+  group_by(sexo) %>% 
+  drop_na(sexo) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+n_masc_chik <- sexo_chik[sexo_chik$sexo=="Masculino", "casos"]
+perc_masc_chik <- sexo_chik[sexo_chik$sexo=="Masculino", "perc"]
+
+n_fem_chik <- sexo_chik[sexo_chik$sexo=="Feminino", "casos"]
+perc_fem_chik <- sexo_chik[sexo_chik$sexo=="Feminino", "perc"]
+
+raca_chik <- confirmados_chik %>%
+  group_by(racaCor) %>% 
+  drop_na(racaCor) %>%
+  mutate(racaCor = case_when(racaCor == "Parda" | racaCor == "Preta" ~ "Negra", T ~ racaCor)) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+n_branca_chik <- raca_chik[raca_chik$racaCor=="Branca", "casos"]
+perc_branca_chik <- raca_chik[raca_chik$racaCor=="Branca", "perc"]
+
+n_negra_chik <- raca_chik[raca_chik$racaCor=="Negra", "casos"]
+perc_negra_chik <- raca_chik[raca_chik$racaCor=="Negra", "perc"]
+
+quantis_idade_chik <- quantile(confirmados_chik$idade, na.rm = T)
+
+faixas_etarias_chik <- confirmados_chik %>%
+  group_by(fx_et_p) %>% 
+  drop_na(fx_et_p) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+top3_f_et_chik <- faixas_etarias_chik %>% 
+  mutate(fx_et_p = as.character(fx_et_p)) %>% 
+        arrange(desc(casos)) %>% 
+        top_n(3, casos)
+
+fx_et1_chik <- top3_f_et_chik[1,1]
+n_fx_et1_chik <- top3_f_et_chik[1,2]
+perc_fx_et1_chik <- top3_f_et_chik[1,3]
+
+fx_et2_chik <- top3_f_et_chik[2,1]
+n_fx_et2_chik <- top3_f_et_chik[2,2]
+perc_fx_et2_chik <- top3_f_et_chik[2,3]
+
+fx_et3_chik <- top3_f_et_chik[3,1]
+n_fx_et3_chik <- top3_f_et_chik[3,2]
+perc_fx_et3_chik <- top3_f_et_chik[3,3]
+
+```
+
+<br/>
+
+A faixa etária mais afetada pelos casos de chikungunya no estado de São Paulo foi a de `r fx_et1_chik` anos, com `r perc_fx_et1_chik` dos casos registrados. Em seguida, destacaram-se as faixas etárias de `r fx_et2_chik` anos, com `r perc_fx_et2_chik` dos casos, e de `r fx_et3_chik` anos, com `r perc_fx_et3_chik` dos casos. A mediana de idade foi de `r round(quantis_idade_chik[3])` anos (IQR: `r round(quantis_idade_chik[2])`-`r round(quantis_idade_chik[4])`). Quanto ao sexo de nascimento, `r perc_fem_chik` dos casos eram mulheres e `r perc_masc_chik` homens (**Tabela 6**), com detalhamento da distribuição etária por sexo na **Figura 11**. A raça/cor branca correspondeu a `r perc_branca_chik` dos casos e negra a `r perc_negra_chik` dos casos.
+
+<br/>
+
+**_Tabela 6_ - Casos confirmados de chikungunya, segundo características sociodemográficas, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+theme_gtsummary_language("pt", big.mark = ".", decimal.mark = ",")
+
+confirmados_chik %>%
+        select(idade,
+               fx_et,
+               sexo) %>%
+         tbl_summary(., missing = "no",
+                    statistic = list(all_continuous() ~ c(
+                            "{median} ({p25}, {p75})")),
+                    type   = all_continuous() ~ "continuous",
+                    label = list(idade ~ "Idade",
+                                 fx_et ~ "Faixa etária",
+                                 sexo ~ "Sexo de nascimento")) %>%
+        modify_header(label = " ") %>% # update the column header
+        bold_labels() %>%
+        modify_footnote(all_stat_cols() ~ paste0("Mediana (IQR); n (%). Fonte: SINAN, ", format(dt_atualizacao, "%d/%m/%Y")))
+
+```
+
+<br/>
+
+**_Figura 11_ - Casos confirmados de chikungunya, segundo características sociodemográficas, estado de São Paulo, 2024**
+```{r , echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", out.height=="70%", fig.align = "center"}
+
+piramide_chik <- confirmados_chik %>% 
+        group_by(fx_et_p, sexo) %>%
+        summarise(n = as.numeric(n())) %>%
+        drop_na() %>% 
+        mutate(prop = paste(round(n/sum(n), 2) * 100, sep = "", "%"),
+               n = case_when(sexo == "Masculino" ~ n * -1, TRUE ~ n),
+               abs_n = abs(n))
+
+piramide_plot_chik <- plot_ly(piramide_chik, x = ~n, y = ~fx_et_p, color = ~sexo, colors = c("#d9ed92", "#52B69a")) %>% 
+        add_bars(orientation = 'h', hovertemplate = "Faixa etária: %{y}<br>Número de casos: %{text}<br>Proporção: %{customdata}",
+                 text = ~paste(format(abs_n, big.mark = ".", decimal.mark = ",")),
+                 textposition = "none",
+                 customdata = piramide_chik$prop,
+                 showlegend = T) %>%
+        layout(bargap = 0.1, barmode = 'overlay',
+               yaxis = list(title = "Faixa etária (anos)"),
+               xaxis = list(title = "Número de casos", tickmode = 'array', tickvals = c(-150, -75, -25, 0, 25, 75, 150, 300, 450),
+                            ticktext = c('150', '75', '25', '0', '25', '75', '150', '300', '450')),
+               legend = list(x = 1, y = 1, bgcolor = 'rgba(255, 255, 255, 0.5)'),
+               margin = list(l = 150, b = 100))
+
+raca_cor_chik <- confirmados_chik %>% 
+        group_by(racaCor) %>%
+        summarise(n = as.numeric(n())) %>%
+        drop_na() %>% 
+        mutate(prop = paste(round(n/sum(n), 4) * 100, sep = "", "%"),
+               racaCor = reorder(racaCor, -n),
+               abs_n = abs(n))
+
+raca_cor_plot_chik <- plot_ly(raca_cor_chik, x = ~racaCor, y = ~n, type = "bar",
+                         text = ~paste("Raça/cor:", racaCor, "<br>",
+                                       "Número de casos:", format(abs_n, big.mark = ".", decimal.mark = ","), "<br>",
+                                       "Proporção:", prop),
+                         hoverinfo = "text",
+                         textposition = "none",
+                         marker = list(color = "#99d98c"),
+                         name = "Raça/Cor"  # Label personalizada na legenda
+) %>%
+        layout(
+                xaxis = list(title = "Raça/cor"),
+                yaxis = list(title = "Número de casos", tickformat = ".0f"),
+                margin = list(l = 150, b = 100, t = 100),
+                            legend = list(x = 0.8, y = 0.9)
+        )
+
+subplot(piramide_plot_chik, raca_cor_plot_chik, nrows = 1)
+    
+```
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+top5_sintomas_chik <- confirmados_chik %>% 
+    select(FEBRE, MIALGIA, CEFALEIA, EXANTEMA, VOMITO, NAUSEA,
+                       DOR_COSTAS, CONJUNTVIT, ARTRITE, ARTRALGIA, PETEQUIA_N,
+                       LEUCOPENIA, LACO, DOR_RETRO) %>% 
+    mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>% 
+    pivot_longer(
+      cols = c(FEBRE, MIALGIA, CEFALEIA, EXANTEMA, VOMITO, NAUSEA,
+                       DOR_COSTAS, CONJUNTVIT, ARTRITE, ARTRALGIA, PETEQUIA_N,
+                       LEUCOPENIA, LACO, DOR_RETRO), 
+      names_to = "sintoma",
+      values_to = "n") %>% 
+    mutate(sintoma = case_when(sintoma == "VOMITO" ~ "vômito",
+                             sintoma == "NAUSEA" ~ "náusea",
+                             sintoma == "DOR_COSTAS" ~ "dor nas costas", 
+                             sintoma == "PETEQUIA_N" ~ "petéquias",
+                             sintoma == "DOR_RETRO" ~ "dor retro-orbitária", 
+                             sintoma == "LACO" ~ "prova do laço positiva",
+                             sintoma == "CONJUNTVIT" ~ "conjuntivite",
+                             T ~ sintoma)) %>% 
+    group_by(sintoma) %>% 
+    summarise(n = sum(n)) %>% 
+    arrange(desc(n)) %>%
+    top_n(5, n) %>% 
+    mutate(sintoma = tolower(sintoma))
+
+```
+ 
+<br/>
+
+Os sinais e sintomas mais frequentes entre os casos confirmados de chikungunya foram, respectivamente, `r knitr::combine_words(top5_sintomas_chik$sintoma, and = "e ")` (**Figura 12**). 
+
+<br/>
+
+**_Figura 12_ - Sintomas apresentados pelos casos confirmados de chikungunya, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+sintomas_chik <- confirmados_chik %>% 
+  select(FEBRE, MIALGIA, CEFALEIA, EXANTEMA, VOMITO, NAUSEA,
+                       DOR_COSTAS, CONJUNTVIT, ARTRITE, ARTRALGIA, PETEQUIA_N,
+                       LEUCOPENIA, LACO, DOR_RETRO) %>% 
+  mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>% 
+  mutate(casos = 1, total = sum(casos)) %>%
+    pivot_longer(
+    cols = c(-total, -casos), 
+    names_to = "sintoma",
+    values_to = "n") %>% 
+  mutate(sintoma = case_when(sintoma == "VOMITO" ~ "Vômito",
+                             sintoma == "NAUSEA" ~ "Náusea",
+                             sintoma == "DOR_COSTAS" ~ "Dor nas costas", 
+                             sintoma == "PETEQUIA_N" ~ "Petéquias",
+                             sintoma == "DOR_RETRO" ~ "Dor retro-orbitária", 
+                             sintoma == "LACO" ~ "Prova do laço positiva",
+                             sintoma == "CONJUNTVIT" ~ "Conjuntivite", T ~ str_to_title(sintoma))) %>% 
+  mutate(sintoma = factor(sintoma)) %>% 
+  group_by(sintoma) %>% 
+  mutate(n = sum(n), perc = round(n/total*100), sintoma = reorder(sintoma, -n)) %>% 
+  ungroup() %>% 
+  distinct(sintoma, .keep_all = T) %>% 
+  mutate(sintoma = reorder(sintoma, -n)) %>% 
+  select(-casos, - total)
+
+sintomas_chik %>%
+
+plot_ly(y = ~reorder(fct_rev(sintoma), n),
+          x = ~perc,
+          hovertemplate = ~paste("Sintoma: ", sintoma, "<br>",
+                        "Casos com o sintoma: ", format(n, big.mark = ".", decimal.mark = ","), "<br>",
+                        "Frequência: ", format(perc, big.mark = ".", decimal.mark = ","), sep = "", "%"),
+          type = "scatter",
+          mode = "markers",
+        color = ~sintoma,
+        colors = c("#52B69a")) %>%
+  add_segments(y = ~reorder(fct_rev(sintoma), n),
+               yend = ~reorder(fct_rev(sintoma), n),
+               x = 0, xend = ~perc,
+               line = list(dash = "dot", color = "#6f6f6f")) %>%
+  layout(xaxis = list(title = ""),
+         yaxis = list(title = "%"),
+         margin = list(b = 100),
+         showlegend = FALSE,
+         xaxis2 = list(anchor = "free"),
+         xaxis3 = list(anchor = "free"))%>%
+  add_markers(marker = list(size = 10))
+
+
+```
+
+
+
+
+

@@ -1,0 +1,1181 @@
+
+
+```{r , echo=FALSE, warning = FALSE, message = FALSE}
+
+## numero de linhas
+formatar_numero_linhas <- function(dataframe) {
+  numero_formatado <- format(nrow(dataframe), big.mark = ".", decimal.mark = ",")
+  return(numero_formatado)
+}
+
+## numero e percentual
+extrair <- function(dataframe, coluna, valor) {
+  return(dataframe[dataframe[, coluna] == valor, ])
+}
+
+################
+
+notificados_ano_dengue <- formatar_numero_linhas(dengue) 
+n_municipios_ano_dengue <- n_distinct(dengue$mun)
+
+confirmados_dengue <- dengue %>% 
+  filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12") 
+ 
+confirmados_ano_dengue <- formatar_numero_linhas(confirmados_dengue)
+
+incidencia_ano_dengue <- format(round(nrow(confirmados_dengue)/sum(pop_municipio$pop2022)*100000, 1), big.mark = ".", decimal.mark = ",")
+
+media_ano_dengue <- confirmados_dengue %>% 
+  group_by(DT_SIN_PRI) %>% 
+  count() %>%
+  ungroup() %>% 
+  summarise(media= format(round(mean(n, na.rm = T)), big.mark = ".", decimal.mark = ","))
+
+classificacao_dengue <- confirmados_dengue %>% 
+  group_by(classificacao, CLASSI_FIN) %>% 
+  count() %>%
+  ungroup() %>% 
+  mutate(perc = paste0(format(round(n/sum(n)*100, 2), big.mark = ".", decimal.mark = ","),"%"),
+        n = format(n, big.mark = ".", decimal.mark = ","),
+        classificacao = tolower(classificacao))
+
+info_dengue <- extrair(classificacao_dengue, "CLASSI_FIN", "10")
+info_alarme <- extrair(classificacao_dengue, "CLASSI_FIN", "11")
+info_grave <- extrair(classificacao_dengue, "CLASSI_FIN", "12")
+
+
+n_dengue <- info_dengue$n
+perc_dengue <- info_dengue$perc
+class_dengue <- info_dengue$classificacao
+
+n_alarme <- info_alarme$n
+perc_alarme <- info_alarme$perc
+class_alarme <- info_alarme$classificacao
+
+n_grave <- info_grave$n
+perc_grave <- info_grave$perc
+class_grave <- info_grave$classificacao
+
+
+ultimas_4_sem_dengue <- confirmados_dengue %>% 
+  filter(DT_SIN_PRI >= as.Date(data_inicio))
+
+confirmados_4sem_dengue <- formatar_numero_linhas(ultimas_4_sem_dengue)
+
+n_municipios_4sem_dengue <- n_distinct(ultimas_4_sem_dengue$mun)
+
+media_4sem_dengue <- ultimas_4_sem_dengue %>% 
+  group_by(DT_SIN_PRI) %>% 
+  count() %>%
+  ungroup() %>% 
+  summarise(media= format(round(mean(n, na.rm = T)), big.mark = ".", decimal.mark = ","))
+
+notificados_atual_dengue <-nrow(dengue) 
+
+confirmados_atual_dengue <- dengue %>% 
+  filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12") %>% 
+  nrow
+
+investigacao_atual_dengue <- dengue %>% 
+  filter(is.na(CLASSI_FIN)) %>% 
+  nrow
+
+obitos_atual_dengue <- dengue %>% 
+  filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12", EVOLUCAO == 2) %>% 
+  nrow
+
+notificados_ano_anterior_dengue <- nrow(dengue_ano_anterior) 
+
+confirmados_ano_anterior_dengue <- dengue_ano_anterior %>% 
+  filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12") %>% 
+  nrow
+
+obitos_ano_anterior_dengue <- dengue_ano_anterior %>% 
+  filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12", EVOLUCAO == 2) %>% 
+  nrow
+
+notificados_ano_anterior_parcial_dengue <- dengue_ano_anterior %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  nrow() 
+
+confirmados_ano_anterior_parcial_dengue <- dengue_ano_anterior %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12") %>% 
+  nrow
+
+obitos_ano_anterior_parcial_dengue <- dengue_ano_anterior %>% 
+  mutate(SE = epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  filter(SE <= SE_final$SE) %>% 
+  filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12", EVOLUCAO == 2) %>% 
+  nrow
+
+tabela_dengue <- data.frame(ano = c(year(min(dengue_ano_anterior$DT_NOTIFIC)), year(min(dengue_ano_anterior$DT_NOTIFIC)), year(max(dengue$DT_NOTIFIC))),
+                     periodo = c("SE 1 - 52", paste0("SE 1 - ", SE_final$SE), paste0("SE 1 - ", SE_final$SE)),
+                     notificados = c(notificados_ano_anterior_dengue, notificados_ano_anterior_parcial_dengue, notificados_atual_dengue),
+                     investigacao = c(".", ".", format(investigacao_atual_dengue, big.mark = ".", decimal.mark = ",")),
+                     confirmados = c(confirmados_ano_anterior_dengue, confirmados_ano_anterior_parcial_dengue, confirmados_atual_dengue),
+                     obitos = c(obitos_ano_anterior_dengue, obitos_ano_anterior_parcial_dengue, obitos_atual_dengue)
+) %>% 
+
+        mutate(notificacao = case_when(ano == year(max(dengue$DT_NOTIFIC)) & notificados > lag(notificados, default = NA) ~ "2",
+                                         ano == year(max(dengue$DT_NOTIFIC)) & notificados < lag(notificados, default = NA) ~ "0"),
+               confirmacao = case_when(ano == year(max(dengue$DT_NOTIFIC)) & confirmados > lag(confirmados, default = NA) ~ "2",
+                                           ano == year(max(dengue$DT_NOTIFIC)) & confirmados < lag(confirmados, default = NA) ~ "0"),
+               mortes = case_when(ano == year(max(dengue$DT_NOTIFIC)) & obitos > lag(obitos, default = NA) ~ "2",
+                                         ano == year(max(dengue$DT_NOTIFIC)) & obitos < lag(obitos, default = NA) ~ "0")) %>% 
+        mutate(notificacao = case_when(notificacao == 2 ~ "#C51620",
+                                         notificacao == 0 ~ "#2D708EFF",
+                                         T ~ "white"),
+               confirmacao = case_when(confirmacao == 2 ~ "#C51620", 
+                                       confirmacao == 0 ~ "#2D708EFF",
+                                       T ~ "white"),
+               mortes = case_when(mortes == 2 ~ "#C51620", 
+                                  mortes == 0 ~ "#2D708EFF",
+                                  T ~ "white")) %>% 
+        mutate(notificados = format(notificados, big.mark = ".", decimal.mark = ","),
+               confirmados = format(confirmados, big.mark = ".", decimal.mark = ","),
+               obitos = format(obitos, big.mark = ".", decimal.mark = ","))
+
+caract_tabela_dengue <- tabela_dengue %>% 
+  filter(ano == 2024) %>% 
+  mutate(notificacao = case_when(notificacao == "#C51620" ~ "aumento",
+                                     notificacao == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"),
+         confirmacao = case_when(confirmacao == "#C51620" ~ "aumento",
+                                     confirmacao == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"),
+         mortes = case_when(mortes == "#C51620" ~ "aumento",
+                                   mortes == "#2D708EFF" ~ "redução",
+                                     T ~ "inalteração"))
+                             
+```
+
+## Dengue
+
+De `r format(as.Date(primeiro_dia_ano), '%d de %B')` até `r data_final_SE` (SE `r SE_final`), foram notificados `r notificados_ano_dengue` casos de dengue no SINAN, residentes em `r n_municipios_ano_dengue` municípios do ESP. Do total de casos notificados em `r year(primeiro_dia_ano)`, `r confirmados_ano_dengue` foram confirmados, sendo `r n_dengue` (`r perc_dengue`) classificados como `r class_dengue`, `r n_alarme` (`r perc_alarme`) como `r class_alarme` e `r n_grave` (`r perc_grave`) como `r class_grave`, com média de `r media_ano_dengue` confirmações diárias e incidência acumulada de `r incidencia_ano_dengue` casos por 100.000 habitantes no período. Nas últimas quatro semanas epidemiológicas (SE `r SE_inicio` a `r SE_final`), período que vai de `r data_inicio_SE` a `r data_final_SE`, foram confirmados `r confirmados_4sem_dengue` casos em `r n_municipios_4sem_dengue` municípios.
+
+Em comparação ao mesmo período (SE 1 a `r SE_final`) do ano de `r ano - 1`, observou-se `r caract_tabela_dengue$notificacao` do número de notificações, `r caract_tabela_dengue$confirmacao` das confirmações e `r caract_tabela_dengue$mortes` dos óbitos por dengue (**Tabela 1**).
+<br/>
+
+**_Tabela 1_ - Número de casos notificados, confirmados e óbitos por dengue, SE 1 a `r SE_final$SE`, `r ano - 1` e `r ano`, estado de São Paulo**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.height = 4, fig.width = 12, fig.align = "center"}
+
+left_border<-cell_style(border_color = "#f2f2f2",border_style = "solid",border_width = "1px 0px 0px 0px")
+right_border<-cell_style(border_color = "#f2f2f2",border_style = "solid",border_width = "1px 0px 2px 0px")
+
+tabela_anos_dengue <- reactable(
+        tabela_dengue,
+        theme = reactableTheme(
+                style = list(fontSize = 14, padding = "0px 0px 0px 0px"),
+                groupHeaderStyle = list(fontWeight = "bold")
+        ),
+        fullWidth = FALSE,
+        defaultColDef = colDef(vAlign = "center", width = 120),
+        columnGroups = list(
+                colGroup(name = "", columns = c("ano", "periodo", "notificados", "investigacao", "confirmados", "obitos"))
+                
+        ),
+        columns = list(
+                notificacao = colDef(show=FALSE),
+                confirmacao = colDef(show=FALSE),
+                mortes = colDef(show=FALSE),
+                ano = colDef(name = "Ano",
+                             sticky="left",
+                             width=50,
+                             style='background-color:#FCFCFC;'),
+                periodo = colDef(name = "Período", 
+                                 style = cell_style(
+                                         border_color = "#f2f2f2",
+                                         border_style = "solid",
+                                         border_width = "1px 0px 0px 2px",
+                                         vertical_align = "center",
+                                         horizontal_align = "center"),
+                                 align = "center"),
+                notificados = colDef(name = "Notificados", 
+                                     style = cell_style(
+                                             border_color = "#f2f2f2",
+                                             border_style = "solid",
+                                             border_width = "1px 0px 0px 2px",
+                                             vertical_align = "center",
+                                             horizontal_align = "center"),
+                                     align = "right",
+                                     cell = function(value, index){
+                                             color = tabela_dengue$notificacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_dengue$notificacao[index] == "#C51620","arrow-up","arrow-down")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;margin-right:5px;color:{color}")),
+                                                     span(value, style=glue("text-align:right;display:inline-block;width:70px;color:black;"))
+                                             )
+                                     }),
+                investigacao = colDef(name = "Investigação", 
+                                 style = cell_style(
+                                         border_color = "#f2f2f2",
+                                         border_style = "solid",
+                                         border_width = "1px 0px 0px 2px",
+                                         vertical_align = "center",
+                                         horizontal_align = "center"),
+                                 align = "right"),
+                
+                confirmados = colDef(name = "Confirmados",
+                                     style = cell_style(
+                                             border_color = "#f2f2f2",
+                                             border_style = "solid",
+                                             border_width = "1px 0px 0px 2px",
+                                             vertical_align = "center",
+                                             horizontal_align = "center"),
+                                     align = "right", 
+                                     cell = function(value, index){
+                                             color = tabela_dengue$confirmacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_dengue$confirmacao[index] == "#C51620","arrow-up","arrow-down")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;margin-right:5px;color:{color}")),
+                                                     span(value, style=glue("text-align:right;display:inline-block;width:70px;color:black;"))
+                                             )
+                                     }),
+                obitos = colDef(name = "Óbitos",
+                                style = cell_style(
+                                        border_color = "#f2f2f2",
+                                        border_style = "solid",
+                                        border_width = "1px 0px 0px 2px",
+                                        vertical_align = "center",
+                                        horizontal_align = "center"),
+                                align = "right", 
+                                cell = function(value, index){
+                                        color = tabela_dengue$mortes[index]
+                                        value = value
+                                        icon = ifelse(tabela_dengue$mortes[index] == "#C51620","arrow-up","arrow-down")
+                                        tagList(
+                                                span(shiny::icon(icon), style=glue("text-align:left;display:inline-block;width:1px;color:{color}")),
+                                                span(value, style=glue("text-align:right;display:inline-block;width:45px;color:black;"))
+                                        )
+                                }))
+        
+) %>%
+        reactablefmtr::google_font(font_family = "IBM Plex Sans", font_weight = c(400, 600)) %>% 
+        add_source(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")"), font_size = 10, font_color = "#737373")
+  
+tabela_anos_dengue
+
+```
+
+```{r , echo=FALSE, warning = FALSE, message = FALSE}
+
+# Criando o objeto {`nao_epidemicos`} com anos não epidêmicos
+nao_epidemicos <- c(2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023)
+
+# Criando o objeto {`dengue_atual`} para o ano corrente
+dengue_atual <- dengue %>% 
+        filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12" | is.na(CLASSI_FIN)) %>% 
+        mutate(semana_epi = floor_date(DT_SIN_PRI, "week")) %>% 
+        group_by(semana_epi) %>% 
+        summarise(casos = n()) %>% 
+        mutate(incidencia = round(casos/sum(pop_municipio$pop2022)*100000,2)) %>% 
+        mutate(semana_epi = epiweek(semana_epi)) # Criando uma nova coluna chamada 'sem_epi', referente à semana epidemiológica
+
+# Contagem - por semana epidemiológica data_sintomas, numero de casos
+dengue_stat <- historico_dengue  %>% 
+        filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12" | is.na(CLASSI_FIN) | CLASSI_FIN == "1" | CLASSI_FIN == "2" | CLASSI_FIN == "3" | CLASSI_FIN == "4") %>% 
+        mutate(semana_epi = floor_date(DT_SIN_PRI, "week")) %>% 
+        filter(year(semana_epi) %in% nao_epidemicos) %>%  # Filtrando os dados da série em que o ano não é epidêmico
+        dplyr::select(semana_epi) %>%
+        group_by(semana_epi)  %>%  # Agrupando os dados pela semana epidemiológica
+        mutate(casos = n(),
+               incidencia = (casos/sum(pop_municipio$pop2022))*100000) %>% 
+        distinct(semana_epi, casos, incidencia) %>% 
+        mutate(semana_epi = epiweek(semana_epi))  %>%  # Criando uma nova coluna chamada 'sem_epi', referente à semana epidemiológica
+        group_by(semana_epi)  %>%  # Agrupando os dados pela semana epidemiológica
+        summarise(
+                media = mean(incidencia, na.rm = TRUE),
+                desvio = sd(incidencia, na.rm = TRUE) ,
+                sup = media + 1.96 * desvio,
+                mediana = round(quantile(incidencia, probs = c(0.5), na.rm = T), 2),
+                lim_sup = round(quantile(incidencia, probs = c(0.75), na.rm = T), 2),
+                lim_inf = round(quantile(incidencia, probs = c(0.25), na.rm = T), 2))
+
+max_incidencia_atual_dengue <- dengue_atual %>% 
+  filter(incidencia == max(incidencia))
+max_lim_sup_dengue <- dengue_stat %>% 
+  filter(lim_sup == max(lim_sup))
+max_mediana_dengue <- dengue_stat %>% 
+  filter(mediana == max(mediana))
+
+pico_dengue <- max_incidencia_atual_dengue %>% 
+  mutate(temporalidade = case_when(semana_epi > max_lim_sup_dengue$semana_epi ~ "mais tardiamente",
+                                   semana_epi == max_lim_sup_dengue$semana_epi ~ "coincidindo com o observado historicamente",
+                                   semana_epi < max_lim_sup_dengue$semana_epi ~ "mais precocemente"
+                                   ),
+    interpretacao = case_when(incidencia > max_lim_sup_dengue$lim_sup ~ "acima do limite superior (p75) estimado pelo",
+                                   incidencia <= max_lim_sup_dengue$lim_sup & incidencia >= max_mediana_dengue$mediana ~ "entre o limite superior (p75) e a mediana estimados pelo",
+                                   incidencia < max_mediana_dengue$mediana ~ "abaixo da mediana estimada pelo"),
+         )
+
+```
+
+<br/>
+
+Até o momento, o pico de incidência de casos prováveis de dengue (casos notificados menos casos descartados) ocorreu na SE `r max_incidencia_atual_dengue$semana_epi`, `r pico_dengue$temporalidade` e `r pico_dengue$interpretacao` diagrama de controle (**Figura 1**). Como a entrada dos dados no SINAN pode ser afetada pelo tempo até sua digitação e pelo intervalo entre o início dos sintomas e a busca por serviços de saúde, a incidência das semanas epidemiológicas mais recentes deve ser interpretada com cautela.
+
+<br/>
+
+**_Figura 1_ - Diagrama de controle de casos prováveis de dengue, SE 1 a `r SE_final` de `r ano`, estado de São Paulo**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.height = 4, fig.width = 12, fig.align = "center"}
+
+# Criando o gráfico com o diagrama de controle 
+# gráfico -----------------------------------------------------------------
+
+plot_ly() %>%
+        add_lines(data = dengue_stat, x = ~semana_epi, y = ~mediana, color = I("#F6C324"),
+                  name = "Mediana",
+                  text = ~paste("SE:", semana_epi, "<br>Mediana:", format(mediana, big.mark = ".", decimal.mark = ",")),
+                  hoverinfo = "text",
+                  textposition = "none") %>%
+        add_lines(data = dengue_stat, x = ~semana_epi, y = ~lim_sup, color = I("#C51620"),
+                  name = "Limite superior (p75)",
+                  text = ~paste("SE:", semana_epi, "<br>Limite superior:", format(lim_sup, big.mark = ".", decimal.mark = ",")),
+                  hoverinfo = "text",
+                  textposition = "none") %>%
+        add_lines(data = dengue_stat, x = ~semana_epi, y = ~lim_inf, color = I("#29AF7FFF"),
+                  name = "Limite inferior (p25)",
+                  text = ~paste("SE:", semana_epi, "<br>Limite inferior:", format(lim_inf, big.mark = ".", decimal.mark = ",")),
+                  hoverinfo = "text",
+                  textposition = "none") %>%
+        add_lines(data = dengue_atual, x = ~semana_epi, y = ~incidencia, color = I("#2D708EFF"),
+                  name = ~paste("Incidência", ano),
+                  text = ~paste("SE:", semana_epi, "<br>Incidência ", ano, ": ", format(incidencia, big.mark = ".", decimal.mark = ",")),
+                  hoverinfo = "text",
+                  textposition = "none",
+                  line = list(dash = "dot")) %>%
+        layout(xaxis = list(title = "Semana Epidemiológica"),
+               yaxis = list(title = "Incidência x100.000 habitantes"),
+               legend = list(x = 0.6, y = 0.9),
+               annotations = list(
+                       x = 1,
+                       y = -0.1,
+                       text = paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")"),
+                       showarrow = FALSE,
+                       xref = "paper",
+                       yref = "paper",
+                       xanchor = "right",
+                       yanchor = "middle",
+                       xshift = 0,
+                       yshift = -2,
+                       font = list(size = 8)
+               )
+        )
+ 
+```
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE}
+
+dengue_rs <- confirmados_dengue %>%
+  group_by(cod_rs, nome_rs) %>% 
+  summarise(casos = n()) %>% 
+  ungroup() %>% 
+  left_join(pop_rs, by = c("cod_rs")) %>%
+  select(-nome_rs.y) %>% 
+  rename(nome_rs = nome_rs.x) %>% 
+  mutate(casos = replace_na(casos, 0)) %>% 
+  mutate(incidencia = round(casos/pop_rs*100000)) %>% 
+  mutate(inc_q = case_when(incidencia >= 1000 ~ "1.000 e +",
+                           incidencia >= 300 & incidencia < 1000 ~ "300 - 1.000",
+                           incidencia >= 100 & incidencia < 300 ~ "100 - 300",
+                           incidencia >= 50 & incidencia < 100 ~ "50 - 100",
+                           incidencia > 0 & incidencia < 50 ~ "até 50", T ~ "sem confirmação"),
+         casos_q = case_when(casos >= 2000 ~ "2.000 e +",
+                             casos >= 1000 & casos < 2000 ~ "1.000 - 2.000",
+                             casos >= 500 & casos < 1000 ~ "500 - 1.000",
+                             casos >= 100 & casos < 500 ~ "100 - 500",
+                             casos >= 1 & casos < 100 ~ "até 100",
+                             T ~ "sem confirmação")) %>% 
+  mutate(inc_q = factor(inc_q, levels = c("1.000 e +", "300 - 1.000", "100 - 300", "50 - 100", "até 50", "sem confirmação")),
+         casos_q = factor(casos_q, levels = c("2.000 e +", "1.000 - 2.000", "500 - 1.000", "100 - 500", "até 100", "sem confirmação"))) %>% 
+        mutate(cod_rs = as.numeric(cod_rs))
+
+top5casos_rs_dengue <- dengue_rs %>%
+  drop_na(casos) %>% 
+  slice_max(casos, n = 5)
+
+top_incid_rs_dengue <- dengue_rs %>%
+  filter(incidencia >= quantile(incidencia, probs = c(0.95), na.rm = T)) %>% 
+  arrange(desc(incidencia)) %>% 
+  distinct(nome_rs, .keep_all = T) 
+
+obitos_rs_dengue <- confirmados_dengue %>%
+  filter(EVOLUCAO == 2) %>% 
+  group_by(cod_rs, nome_rs) %>% 
+  summarise(obitos = n()) %>% 
+  ungroup() %>% 
+  left_join(pop_rs, by = c("cod_rs")) %>%
+  select(-nome_rs.y) %>% 
+  rename(nome_rs = nome_rs.x) %>% 
+  mutate(obitos = replace_na(obitos, 0),
+         obitos = round(obitos)) %>% 
+        mutate(cod_rs = as.numeric(cod_rs))
+
+top8obitos_rs_dengue <- obitos_rs_dengue %>%
+  drop_na(obitos) %>% 
+  slice_max(obitos, n = 8)
+
+```
+
+<br/>
+
+As incidências acumuladas de casos confirmados de dengue em `r ano` mais elevadas foram observadas nas RS `r knitr::combine_words(top_incid_rs_dengue$nome_rs, and = "e ")`, respectivamente. As RS com mais óbitos foram `r knitr::combine_words(top8obitos_rs_dengue$nome_rs, and = "e ")`. O coeficiente de incidência (x 100.000 habitantes), o número de casos e o número de óbitos por RS de residência podem ser consultados nas **Figura 2** e **Figura 3** clicando na região de interesse. Na **Tabela 2**, também foram disponibilizados coeficiente de incidência, número de casos e variação percentual em quatro semanas da média de casos confirmados de dengue, segundo município de residência.
+
+<br/>
+
+**_Figura 2_ - Coeficiente de incidência de casos confirmados de dengue (x 100.000 habitantes) segundo RS de residência, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+casos_dengue <- left_join(rs, dengue_rs, by = c("cod_RS" = "cod_rs")) %>% 
+  left_join(obitos_rs_dengue, by = c("cod_RS" = "cod_rs")) %>% 
+  select(nome_rs.x, incidencia, casos, inc_q, casos_q, obitos) %>% 
+  mutate(casos = format(casos, big.mark = ".", decimal.mark = ","),
+         incid = format(incidencia, big.mark = ".", decimal.mark = ","),
+         obitos = replace_na(obitos, 0),
+         obitos = round(obitos)) 
+obitos_dengue <- left_join(rs, obitos_rs_dengue, by = c("cod_RS" = "cod_rs")) %>% 
+  select(nome_rs, obitos)
+
+# Configurar sf_use_s2
+sf_use_s2(FALSE)
+
+# Configurar o modo de visualização e exibir o mapa
+
+tmap_mode("view") 
+
+tm_shape(casos_dengue) +
+  tm_polygons(c("inc_q"), lwd = .3, style = "cat",
+              palette =c("#962226", "#ae2012", "#bb3c03", "#ca6702", "#ee9600", "#f0f0f0"),
+              popup.vars=c("Número de casos"="casos", "Incidência x100.000"="incid", "Número de óbitos" = "obitos"),
+              title=c("Incidência x100.000")) +
+  tm_shape(rs) +
+  tm_borders(lwd = .1, col = "gray90") +
+  tm_credits(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")")) +
+  tm_view(set.view = c(-48.65, -22.4, 6.5))
+
+```
+<br/>
+**_Figura 3_ - Óbitos confirmados de dengue segundo RS de residência, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+obitos_dengue <- 
+  left_join(rs, obitos_rs_dengue, by = c("cod_RS" = "cod_rs")) %>% 
+  select(nome_rs, obitos) %>% 
+  mutate(obitos = replace_na(obitos, 0),
+         obitos = round(obitos),
+         obitos_q = case_when(obitos >= 20 ~ "20 e +",
+                                        obitos >= 10 & obitos < 20 ~ "10 - 20",
+                                        obitos >= 5 & obitos < 10 ~ "5 - 10",
+                                        obitos >= 3 & obitos < 5 ~ "3 - 5",
+                                        obitos >= 1 & obitos < 3 ~ "até 3",
+                                        T ~ "sem confirmação"),
+                   obitos_q = droplevels(factor(obitos_q, levels = c("20 e +", "10 - 20", "5 - 10", "3 - 5", "até 3", "sem confirmação")))) %>% 
+  select(nome_rs, obitos, obitos_q)
+
+# Configurar sf_use_s2
+sf_use_s2(FALSE)
+
+# Configurar o modo de visualização e exibir o mapa
+
+tmap_mode("view") 
+
+tm_shape(obitos_dengue) +
+  tm_polygons(c("obitos_q"), lwd = .3, style = "cat",
+              palette = c("sem confirmação" = "#f0f0f0", "até 3" = "#fee08b", "3 - 5" = "#fdae61", "5 - 10" = "#f46d43", "10 - 20" = "#d73027", "20 e +" = "#a50026"),
+              popup.vars=c("Óbitos confirmados " = "obitos"),
+              title=c("Óbitos confirmados"), legend.format = c(text.or.more = ("ou mais"), text.separator = ("a"))) +
+  tm_shape(rs) +
+  tm_borders(lwd = .1, col = "gray90") +
+  tm_credits(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")")) +
+  tm_view(set.view = c(-48.65, -22.4, 6.5))
+
+```
+
+<br/>
+
+**_Tabela 2_ - Coeficiente de incidência, número de casos e percentual de variação em 4 semanas dos casos confirmados de dengue, segundo município de residência, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+variacao_final_dengue <- ultimas_4_sem_dengue %>%
+  group_by(mun, epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  summarise(n = n()) %>% 
+  group_by(mun) %>% 
+  summarise(media_final = mean(n, na.rm = T))
+
+variacao_inicial_dengue <- confirmados_dengue %>%
+  filter(DT_SIN_PRI >= as.Date(data_inicio) - weeks(4) & DT_SIN_PRI <= (as.Date(data_final) - weeks(4))) %>% 
+  group_by(mun, epiweek(floor_date(DT_SIN_PRI, "week"))) %>% 
+  summarise(n = n()) %>% 
+  group_by(mun) %>% 
+  summarise(media_inicial = mean(n, na.rm = T)) 
+
+confirmados_mun_dengue <- confirmados_dengue %>% 
+  group_by(mun, gve_nome) %>% 
+  summarise(casos = n(),
+            casos = replace_na(casos, 0),
+            incidencia = round(casos/pop2022*100000)) %>% 
+  distinct()
+
+tabela_casos_dengue <- full_join(variacao_final_dengue, variacao_inicial_dengue, "mun") %>% 
+  mutate(media_inicial = replace_na(media_inicial, 0),
+           media_final = replace_na(media_final, 0),
+           variacao = ((media_final/media_inicial) - 1)*100) %>% 
+  right_join(confirmados_mun_dengue, "mun") %>% 
+  mutate(variacao = replace_na(variacao, 0),
+         variacao = replace(variacao, is.infinite(variacao), 
+NA),
+         classif_var = case_when(variacao < 0 ~ 0,
+                                 variacao > 0 ~ 1)) %>%
+  select(gve_nome, mun, incidencia, casos, variacao, classif_var) %>% 
+        mutate(variacao = case_when(classif_var == 1 ~ paste0("+", round(variacao), "%"),
+               classif_var == 0 ~ paste0(round(variacao), "%"), T ~ "-")
+                       )
+
+periodo_final_dengue <- ultimas_4_sem_dengue %>%
+        mutate(DT_SIN_PRI = format(floor_date(DT_SIN_PRI, "week"), '%d/%m/%Y'))
+
+periodo_inicial_dengue <- confirmados_dengue %>%
+  filter(DT_SIN_PRI >= as.Date(data_inicio) - weeks(4) & DT_SIN_PRI <= (as.Date(data_final) - weeks(4))) %>% 
+        mutate(DT_SIN_PRI = format(floor_date(DT_SIN_PRI, "week"), '%d/%m/%Y'))
+
+datatable(tabela_casos_dengue,
+          class = 'compact',
+          rownames = FALSE,
+          caption = htmltools::tags$caption(style = 'caption-side: bottom; text-align: left; color:black; font-size:80% ;','¹ Variação entre médias semanais de casos confirmados das semanas epidemiológicas de', (paste0((SE-8), " a ", (SE-5), " e de ", (SE-4), " a ", (SE-1), ". Fonte: SINAN, ", format(dt_atualizacao, '%d/%m/%Y')))),
+          extensions = c("Buttons", 'Scroller'),
+          colnames = c("GVE", "Município", "Incidência x100.000", "Número de casos confirmados", "% de variação em 4 semanas¹", " "),
+          filter = 'top',
+          options = list(columnDefs = list(list(targets = "classif_var", visible = FALSE),
+                                           list(className = 'dt-center', targets = c("incidencia", "casos", "variacao"))), 
+                         deferRender = TRUE, scrollY = 200, scroller = TRUE,
+  pageLength = 15,
+  
+  dom = 'Bfrtip',
+  buttons = c('excel', 'pdf'))) %>% 
+    formatStyle(
+     'incidencia',
+    color = styleInterval(c(0), c('black', '#fff')),
+    backgroundColor = styleInterval(c(0, 50, 100, 300, 1000), c('#f0f0f0', "#ee9600", "#ca6702", "#bb3c03", "#ae2012", "#962226"))
+                      
+  ) %>% 
+    formatStyle(
+    "variacao","classif_var", 
+    color = '#fff',
+    backgroundColor = styleEqual(c(0,1), c("#ee9600", "#ae2012")
+                                 
+                                 
+                                 ))
+
+```
+
+<br/>
+
+Análises de áreas quentes, também chamadas de indicadores de autocorrelação espacial, são utilizadas para identificar regiões com alta incidência de eventos, como de casos prováveis de dengue, por meio de métodos estatísticos. A estatística Gi* de Getis avalia se um município e seus municípios vizinhos apresentam níveis significativamente elevados de incidência de casos prováveis dengue em comparação com a média geral do espaço geográfico em estudo, no caso, o ESP, conforme **Figura 4**.
+
+**_Figura 4_ - Áreas quentes de dengue segundo município de residência (incidência de casos prováveis), estado de São Paulo, `r ano`**
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+dengue_hot <- dengue %>% 
+        filter(CLASSI_FIN =="10" | CLASSI_FIN =="11" | CLASSI_FIN =="12" | is.na(CLASSI_FIN)) %>% 
+          reframe(casos = n()/pop2022, .by = c(ID_MN_RESI)) %>% 
+  distinct(ID_MN_RESI, casos)
+
+dengue_hot_sf <- dengue_hot %>%
+  right_join(esp, by = c("ID_MN_RESI" = "cod_6")) %>% 
+  mutate(casos = replace_na(casos, 0),
+         ranking = case_when(ID_MN_RESI == "352040" ~ 1,
+                             ID_MN_RESI == "351050" ~ 2,
+                             ID_MN_RESI == "355070" ~ 3, T ~ 4)) %>% 
+  arrange(ranking) %>%
+  select(-ranking) %>% 
+  st_as_sf() 
+
+matriz_cont <- poly2nb(as(dengue_hot_sf, "Spatial"), queen=TRUE)
+matriz_cont[[1]]=c(as.integer(2),as.integer(3)) #correcao ilhabela
+
+matriz_pesos <- nb2listw(matriz_cont, style="B")
+
+moran <- clean_names(data.frame(localmoran(dengue_hot_sf$casos, matriz_pesos))) 
+dengue_hot_sf$moran_Ii <- moran$ii
+dengue_hot_sf$p <- moran$pr_z_e_ii
+
+
+dengue_hot_spots_plot <- dengue_hot_sf %>%  
+  mutate(
+    classificacao = case_when(
+      moran_Ii > 0 & p <= 0.05 ~ "Quente")
+  ) %>% 
+select(name_muni, classificacao, geom)%>% 
+  st_as_sf() 
+sf_use_s2(FALSE)
+
+tmap_mode("view") 
+
+tm_shape(dengue_hot_spots_plot) +
+    tm_polygons(c("classificacao"), lwd = .3, style = "cat",
+              palette = c("#962226"),
+              colorNA = NULL,
+              textNA = "",
+              labels = "",
+              title=c("Áreas quentes"),
+              popup.vars=F) +
+  tm_view(set.view = c(-48.65, -22.4, 6.5))
+
+```
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE}
+
+sorotipo_quant <- confirmados_dengue %>%
+  filter(SOROTIPO == "1" | SOROTIPO == "2" | SOROTIPO == "3" | SOROTIPO == "4") %>% 
+  group_by(SOROTIPO) %>% 
+  count() %>%
+  ungroup() %>% 
+  mutate(perc = paste0(format(round(n/sum(n)*100, 2), big.mark = ".", decimal.mark = ","),"%"),
+        n = format(n, big.mark = ".", decimal.mark = ","))
+
+sorotipo_1_rs <- confirmados_dengue %>% 
+  filter(SOROTIPO == "1") %>% 
+  distinct(nome_rs) %>% 
+  nrow
+
+sorotipo_2_rs <- confirmados_dengue %>% 
+  filter(SOROTIPO == "2") %>% 
+  distinct(nome_rs) %>% 
+  nrow
+
+sorotipo_3_rs <- confirmados_dengue %>% 
+  filter(SOROTIPO == "3") %>% 
+  distinct(nome_rs) %>% 
+  nrow
+
+sorotipo_4_rs <- confirmados_dengue %>% 
+  filter(SOROTIPO == "4") %>% 
+  distinct(nome_rs) %>% 
+  nrow
+
+perc_sorotipo1 <- sorotipo_quant[sorotipo_quant$SOROTIPO=="1", "perc"]
+perc_sorotipo2 <- sorotipo_quant[sorotipo_quant$SOROTIPO=="2", "perc"]
+perc_sorotipo3 <- sorotipo_quant[sorotipo_quant$SOROTIPO=="3", "perc"]
+perc_sorotipo4 <- sorotipo_quant[sorotipo_quant$SOROTIPO=="4", "perc"]
+
+```
+
+<br/>
+
+Entre os casos de dengue confirmados com identificação do sorotipo viral, `r perc_sorotipo1$perc` foram DENV1, detectados em `r sorotipo_1_rs` das 63 RS, `r perc_sorotipo2$perc` DENV2 em `r sorotipo_2_rs` RS e `r perc_sorotipo3$perc` DENV3 em `r sorotipo_3_rs` RS (**Figura 5**). Os sorotipos detectados são provenientes das amostras coletadas nas 71 unidades sentinelas da vigilância de arboviroses do ESP, assim como da vigilância universal de casos graves e óbitos por suspeita de dengue.
+
+<br/>
+
+**_Figura 5_ - Distribuição dos sorotipos do vírus da dengue segundo RS de residência, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+sorotipo_rs <- confirmados_dengue %>%
+  filter(SOROTIPO == "1" | SOROTIPO == "2" | SOROTIPO == "3" | SOROTIPO == "4") %>% 
+  select(nome_rs, cod_rs, SOROTIPO) 
+
+sorotipo_mapa <- sorotipo_rs %>% 
+  distinct() %>% 
+  group_by(nome_rs, cod_rs) %>% 
+  arrange(SOROTIPO) %>% 
+  summarise(sorotipo = paste(SOROTIPO, collapse = ", ")) 
+
+sorotipo <- left_join(casos_dengue, sorotipo_mapa, by = c("nome_rs.x" =  "nome_rs")) %>% 
+  select(nome_rs.x, sorotipo) %>% 
+  mutate(sorotipo = case_when(is.na(sorotipo) ~ "Sem identificação", T ~ sorotipo),
+         sorotipo = droplevels(factor(sorotipo, levels = c("1", "2", "3", "4",
+                                                           "1, 2", "1, 3", "1, 4", "2, 3", "2, 4", "3, 4",
+                                                           "1, 2, 3", "1, 2, 4", "1, 3, 4", "2, 3, 4", 
+                                                           "1, 2, 3, 4",
+                                                           "Sem identificação")))) 
+
+# Configurar sf_use_s2
+sf_use_s2(FALSE)
+
+# Configurar o modo de visualização e exibir o mapa
+
+tmap_mode("view") 
+
+tm_shape(sorotipo) +
+  tm_polygons(c("sorotipo"), lwd = .3, style = "cat",
+              palette = c("1" = "#ee9600", 
+             "2" = "#E28600",  
+             "3" = "#D67601", 
+             "4" = "#962226",  
+             "1, 2" = "#ca6702", 
+             "1, 3" = "#bb3c03", 
+             "1, 4" = "#ae2012",
+             "2, 3" = "#8E2423",
+             "2, 4" = "#7F1B20",
+             "3, 4" = "#702017",
+             "1, 2, 3" = "#601918",
+             "1, 2, 4" = "#4F1215",  
+             "1, 3, 4" = "#411011",  
+             "2, 3, 4" = "#350C0D",  
+             "1, 2, 3, 4" = "#270709", 
+             "Sem identificação" = "gray80"),  
+
+              popup.vars=c("Sorotipos DENV"="sorotipo"),
+              title=c("Sorotipos DENV")) +
+  tm_shape(rs) +
+  tm_borders(lwd = .1, col = "gray90") +
+  tm_credits(paste0("Fonte: SINAN (atualizado em ", format(dt_atualizacao, '%d/%m/%Y'), ")")) +
+  tm_view(set.view = c(-48.65, -22.4, 6.5))
+
+```
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+sexo_dengue <- confirmados_dengue %>%
+  group_by(sexo) %>% 
+  drop_na(sexo) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+n_masc_dengue <- sexo_dengue[sexo_dengue$sexo=="Masculino", "casos"]
+perc_masc_dengue <- sexo_dengue[sexo_dengue$sexo=="Masculino", "perc"]
+
+n_fem_dengue <- sexo_dengue[sexo_dengue$sexo=="Feminino", "casos"]
+perc_fem_dengue <- sexo_dengue[sexo_dengue$sexo=="Feminino", "perc"]
+
+raca_dengue <- confirmados_dengue %>%
+  group_by(racaCor) %>% 
+  drop_na(racaCor) %>%
+  mutate(racaCor = case_when(racaCor %in% c("Parda", "Preta") ~ "Negra", TRUE ~ racaCor)) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+n_branca_dengue <- raca_dengue[raca_dengue$racaCor=="Branca", "casos"]
+perc_branca_dengue <- raca_dengue[raca_dengue$racaCor=="Branca", "perc"]
+
+n_negra_dengue <- raca_dengue[raca_dengue$racaCor=="Negra", "casos"]
+perc_negra_dengue <- raca_dengue[raca_dengue$racaCor=="Negra", "perc"]
+
+quantis_idade_dengue <- quantile(confirmados_dengue$idade, na.rm = T)
+
+faixas_etarias_dengue <- confirmados_dengue %>%
+  group_by(fx_et_p) %>% 
+  drop_na(fx_et_p) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+top3_f_et_dengue <- faixas_etarias_dengue %>% 
+  mutate(fx_et_p = as.character(fx_et_p)) %>% 
+        arrange(desc(casos)) %>% 
+        top_n(3, casos)
+
+fx_et1_dengue <- top3_f_et_dengue[1,1]
+n_fx_et1_dengue <- top3_f_et_dengue[1,2]
+perc_fx_et1_dengue <- top3_f_et_dengue[1,3]
+
+fx_et2_dengue <- top3_f_et_dengue[2,1]
+n_fx_et2_dengue <- top3_f_et_dengue[2,2]
+perc_fx_et2_dengue <- top3_f_et_dengue[2,3]
+
+fx_et3_dengue <- top3_f_et_dengue[3,1]
+n_fx_et3_dengue <- top3_f_et_dengue[3,2]
+perc_fx_et3_dengue <- top3_f_et_dengue[3,3]
+
+```
+
+<br/>
+
+A faixa etária mais afetada pelos casos de dengue no estado de São Paulo foi a de `r fx_et1_dengue` anos, com `r perc_fx_et1_dengue` dos casos registrados. Em seguida, destacaram-se as faixas etárias de `r fx_et2_dengue` anos, com `r perc_fx_et2_dengue` dos casos, e de `r fx_et3_dengue` anos, com `r perc_fx_et3_dengue` dos casos. A mediana de idade foi de `r round(quantis_idade_dengue[3])` anos (IQR: `r round(quantis_idade_dengue[2])`-`r round(quantis_idade_dengue[4])`). Quanto ao sexo de nascimento, `r perc_fem_dengue` dos casos eram mulheres e `r perc_masc_dengue` homens (**Tabela 3**), com detalhamento da distribuição etária por sexo na **Figura 6**. A raça/cor branca correspondeu a `r perc_branca_dengue` dos casos e negra a `r perc_negra_dengue` dos casos.
+
+<br/>
+
+**_Tabela 3_ - Casos confirmados de dengue, segundo características sociodemográficas, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+theme_gtsummary_language("pt", big.mark = ".", decimal.mark = ",")
+
+confirmados_dengue %>%
+        select(idade,
+               fx_et,
+               sexo) %>%
+         tbl_summary(., missing = "no",
+                    statistic = list(all_continuous() ~ c(
+                            "{median} ({p25}, {p75})")),
+                    type   = all_continuous() ~ "continuous",
+                    label = list(idade ~ "Idade",
+                                 fx_et ~ "Faixa etária",
+                                 sexo ~ "Sexo de nascimento")) %>%
+        modify_header(label = " ") %>% # update the column header
+        bold_labels() %>%
+        modify_footnote(all_stat_cols() ~ paste0("Mediana (IQR); n (%). Fonte: SINAN, ", format(dt_atualizacao, "%d/%m/%Y")))
+
+```
+
+<br/>
+
+**_Figura 6_ - Casos confirmados de dengue, segundo características sociodemográficas, estado de São Paulo, 2024**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", out.height=="70%", fig.align = "center"}
+
+piramide_dengue <- confirmados_dengue %>% 
+        group_by(fx_et_p, sexo) %>%
+        summarise(n = as.numeric(n())) %>%
+        drop_na() %>% 
+        mutate(prop = paste(round(n/sum(n), 2) * 100, sep = "", "%"),
+               n = case_when(sexo == "Masculino" ~ n * -1, TRUE ~ n),
+               abs_n = abs(n))
+
+piramide_plot_dengue <- plot_ly(piramide_dengue, x = ~n, y = ~fx_et_p, color = ~sexo, colors = c("#ee9600","#bb3c03")) %>% 
+        add_bars(orientation = 'h', hovertemplate = "Faixa etária: %{y}<br>Número de casos: %{text}<br>Proporção: %{customdata}",
+                 text = ~paste(format(abs_n, big.mark = ".", decimal.mark = ",")),
+                 textposition = "none",
+                 customdata = piramide_dengue$prop,
+                 showlegend = T) %>%
+        layout(bargap = 0.1, barmode = 'overlay',
+               yaxis = list(title = "Faixa etária (anos)"),
+               xaxis = list(title = "Número de casos", tickmode = 'array', tickvals = c(-30000, -15000, -5000, 0, 5000, 15000, 30000, 40000),
+                            ticktext = c('30.000', '15.000', '5.000', '0', '5.000', '15.000', '30.000', '40.000')),
+               legend = list(x = 1, y = 1, bgcolor = 'rgba(255, 255, 255, 0.5)'),
+               margin = list(l = 10, b = 100))
+
+raca_cor_dengue <- confirmados_dengue %>% 
+        group_by(racaCor) %>%
+        summarise(n = as.numeric(n())) %>%
+        drop_na() %>% 
+        mutate(prop = paste(round(n/sum(n), 4) * 100, sep = "", "%"),
+               racaCor = reorder(racaCor, -n),
+               abs_n = abs(n))
+
+raca_cor_plot_dengue <- plot_ly(raca_cor_dengue, x = ~racaCor, y = ~n, type = "bar",
+                         text = ~paste("Raça/cor:", racaCor, "<br>",
+                                       "Número de casos:", format(abs_n, big.mark = ".", decimal.mark = ","), "<br>",
+                                       "Proporção:", prop),
+                         hoverinfo = "text",
+                         textposition = "none",
+                         marker = list(color = "#ca6702"),
+                         name = "Raça/Cor"  # Label personalizada na legenda
+) %>%
+        layout(
+                xaxis = list(title = "Raça/cor"),
+                yaxis = list(title = "Número de casos", tickformat = ".0f"),
+                margin = list(l = 5, b = 100, t = 100),
+                            legend = list(x = 0.8, y = 0.9)
+        )
+
+subplot(piramide_plot_dengue, raca_cor_plot_dengue, nrows = 1)
+    
+```
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+top5_sintomas_dengue <- confirmados_dengue %>% 
+    select(FEBRE, MIALGIA, CEFALEIA, EXANTEMA, VOMITO, NAUSEA,
+                       DOR_COSTAS, CONJUNTVIT, ARTRITE, ARTRALGIA, PETEQUIA_N,
+                       LEUCOPENIA, LACO, DOR_RETRO) %>% 
+    mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>% 
+    pivot_longer(
+      cols = c(FEBRE, MIALGIA, CEFALEIA, EXANTEMA, VOMITO, NAUSEA,
+                       DOR_COSTAS, CONJUNTVIT, ARTRITE, ARTRALGIA, PETEQUIA_N,
+                       LEUCOPENIA, LACO, DOR_RETRO), 
+      names_to = "sintoma",
+      values_to = "n") %>% 
+    mutate(sintoma = case_when(sintoma == "VOMITO" ~ "vômito",
+                             sintoma == "NAUSEA" ~ "náusea",
+                             sintoma == "DOR_COSTAS" ~ "dor nas costas", 
+                             sintoma == "PETEQUIA_N" ~ "petéquias",
+                             sintoma == "DOR_RETRO" ~ "dor retro-orbitária", 
+                             sintoma == "LACO" ~ "prova do laço positiva",
+                             sintoma == "CONJUNTVIT" ~ "conjuntivite",
+                             T ~ sintoma)) %>% 
+    group_by(sintoma) %>% 
+    summarise(n = sum(n)) %>% 
+    arrange(desc(n)) %>%
+    top_n(5, n) %>% 
+    mutate(sintoma = tolower(sintoma))
+
+```
+ 
+<br/>
+
+Os sinais e sintomas mais frequentes entre os casos confirmados de dengue foram, respectivamente, `r knitr::combine_words(top5_sintomas_dengue$sintoma, and = "e ")` (**Figura 7**). 
+
+<br/>
+
+**_Figura 7_ - Sintomas apresentados pelos casos confirmados de dengue, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+sintomas_dengue <- confirmados_dengue %>% 
+  select(FEBRE, MIALGIA, CEFALEIA, EXANTEMA, VOMITO, NAUSEA,
+                       DOR_COSTAS, CONJUNTVIT, ARTRITE, ARTRALGIA, PETEQUIA_N,
+                       LEUCOPENIA, LACO, DOR_RETRO) %>% 
+  mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>% 
+  mutate(casos = 1, total = sum(casos)) %>%
+    pivot_longer(
+    cols = c(-total, -casos), 
+    names_to = "sintoma",
+    values_to = "n") %>% 
+  mutate(sintoma = case_when(sintoma == "VOMITO" ~ "Vômito",
+                             sintoma == "NAUSEA" ~ "Náusea",
+                             sintoma == "DOR_COSTAS" ~ "Dor nas costas", 
+                             sintoma == "PETEQUIA_N" ~ "Petéquias",
+                             sintoma == "DOR_RETRO" ~ "Dor retro-orbitária", 
+                             sintoma == "LACO" ~ "Prova do laço positiva",
+                             sintoma == "CONJUNTVIT" ~ "Conjuntivite", T ~ str_to_title(sintoma))) %>% 
+  mutate(sintoma = factor(sintoma)) %>% 
+  group_by(sintoma) %>% 
+  mutate(n = sum(n), perc = round(n/total*100), sintoma = reorder(sintoma, -n)) %>% 
+  ungroup() %>% 
+  distinct(sintoma, .keep_all = T) %>% 
+  mutate(sintoma = reorder(sintoma, -n)) %>% 
+  select(-casos, - total)
+
+sintomas_dengue %>%
+
+plot_ly(y = ~reorder(fct_rev(sintoma), n),
+          x = ~perc,
+          hovertemplate = ~paste("Sintoma: ", sintoma, "<br>",
+                        "Casos com o sintoma: ", format(n, big.mark = ".", decimal.mark = ","), "<br>",
+                        "Frequência: ", format(perc, big.mark = ".", decimal.mark = ","), sep = "", "%"),
+          type = "scatter",
+          mode = "markers",
+        color = ~sintoma,
+        colors = c("#bb3c03")) %>%
+  add_segments(y = ~reorder(fct_rev(sintoma), n),
+               yend = ~reorder(fct_rev(sintoma), n),
+               x = 0, xend = ~perc,
+               line = list(dash = "dot", color = "#6f6f6f")) %>%
+  layout(xaxis = list(title = ""),
+         yaxis = list(title = "%"),
+         margin = list(b = 100),
+         showlegend = FALSE,
+         xaxis2 = list(anchor = "free"),
+         xaxis3 = list(anchor = "free"))%>%
+  add_markers(marker = list(size = 10))
+
+```
+
+<br/>
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE}
+
+sexo_obito_dengue <- confirmados_dengue %>% 
+  filter(EVOLUCAO == 2) %>% 
+  drop_na(sexo) %>% 
+  group_by(sexo) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+n_masc_obito_dengue <- sexo_obito_dengue[sexo_obito_dengue$sexo=="Masculino", "casos"]
+perc_masc_obito_dengue <- sexo_obito_dengue[sexo_obito_dengue$sexo=="Masculino", "perc"]
+
+n_fem_obito_dengue <- sexo_obito_dengue[sexo_obito_dengue$sexo=="Feminino", "casos"]
+perc_fem_obito_dengue <- sexo_obito_dengue[sexo_obito_dengue$sexo=="Feminino", "perc"]
+
+raca_obito_dengue <- confirmados_dengue %>%
+  filter(EVOLUCAO == 2) %>% 
+  group_by(racaCor) %>% 
+  drop_na(racaCor) %>%
+  mutate(racaCor = case_when(racaCor == "Parda" | racaCor == "Preta" ~ "Negra", T ~ racaCor)) %>% 
+  summarise(casos = n()) %>%
+  mutate(perc = paste0(format(round(casos/sum(casos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+n_branca_obito_dengue <- raca_obito_dengue[raca_obito_dengue$racaCor=="Branca", "casos"]
+perc_branca_obito_dengue <- raca_obito_dengue[raca_obito_dengue$racaCor=="Branca", "perc"]
+
+n_negra_obito_dengue <- raca_obito_dengue[raca_obito_dengue$racaCor=="Negra", "casos"]
+perc_negra_obito_dengue <- raca_obito_dengue[raca_obito_dengue$racaCor=="Negra", "perc"]
+
+quantis_idade_obito_dengue <- confirmados_dengue %>% 
+  filter(EVOLUCAO == 2) %>% 
+  summarise(quantile(idade, na.rm = T))
+
+faixas_etarias_obito_dengue <- confirmados_dengue %>%
+  filter(EVOLUCAO == 2) %>% 
+  group_by(fx_et_p) %>% 
+  drop_na(fx_et_p) %>% 
+  summarise(obitos = n()) %>%
+  mutate(perc = paste0(format(round(obitos/sum(obitos)*100), big.mark = ".", decimal.mark = ","),"%"))
+
+top3_f_et_obito_dengue <- faixas_etarias_obito_dengue %>% 
+  mutate(fx_et_p = as.character(fx_et_p)) %>% 
+        arrange(desc(obitos)) %>% 
+        top_n(3, obitos)
+
+fx_et1_obito_dengue <- top3_f_et_obito_dengue[1,1]
+n_fx_et1_obito_dengue <- top3_f_et_obito_dengue[1,2]
+perc_fx_et1_obito_dengue <- top3_f_et_obito_dengue[1,3]
+
+fx_et2_obito_dengue <- top3_f_et_obito_dengue[2,1]
+n_fx_et2_obito_dengue <- top3_f_et_obito_dengue[2,2]
+perc_fx_et2_obito_dengue <- top3_f_et_obito_dengue[2,3]
+
+fx_et3_obito_dengue <- top3_f_et_obito_dengue[3,1]
+n_fx_et3_obito_dengue <- top3_f_et_obito_dengue[3,2]
+perc_fx_et3_obito_dengue <- top3_f_et_obito_dengue[3,3]
+
+letalidade_dengue <- left_join(faixas_etarias_dengue, faixas_etarias_obito_dengue, "fx_et_p") %>% 
+  select(fx_et_p, casos, obitos) %>% 
+  mutate(obitos = replace_na(obitos, 0),
+         letalidade = obitos/casos*100,
+         letalidade_per = paste0(format(round(letalidade, 2), big.mark = ".", decimal.mark = ","),"%")
+         ) %>% 
+  arrange(fx_et_p)
+
+maior_letalidade_dengue <- letalidade_dengue %>% 
+  filter(letalidade == max(letalidade))
+
+```
+
+<br/>
+
+Do total de `r obitos_atual_dengue` óbitos por dengue confirmados no período, `r n_fem_obito_dengue` (`r perc_fem_obito_dengue`) foram no sexo feminino e `r n_masc_obito_dengue` (`r perc_masc_obito_dengue`) no sexo masculino. A raça/cor branca correspondeu a `r perc_branca_obito_dengue` dos óbitos e negra a `r perc_negra_obito_dengue`. A mediana de idade foi de `r round(quantis_idade_obito_dengue$quantile[3])` anos (IQR: `r round(quantis_idade_obito_dengue$quantile[2])`-`r round(quantis_idade_obito_dengue$quantile[4])`).
+A faixa etária mais acometida foi a de `r fx_et1_obito_dengue` anos, com `r perc_fx_et1_obito_dengue` dos óbitos registrados nessa faixa etária. Em seguida, destacaram-se as faixas etárias de `r fx_et2_obito_dengue` anos, com `r perc_fx_et2_obito_dengue` dos óbitos, e de `r fx_et3_obito_dengue` anos, com `r perc_fx_et3_obito_dengue` dos óbitos. A maior letalidade foi verificada na faixa etária de `r maior_letalidade_dengue$fx_et_p` anos e atingiu o valor de `r maior_letalidade_dengue$letalidade_per` (**Figura 8**).
+
+<br/>
+
+**_Figura 8_ - Número de óbitos e letalidade por dengue segundo faixa etária, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+plot_ly() %>%
+  add_bars(data = letalidade_dengue, x = ~fx_et_p, y = ~obitos, name = "Número de óbitos",
+           color = I("#bb3c03"),
+           hovertemplate = "Faixa etária: %{x}<br>Óbitos: %{y}") %>%
+  add_lines(data = letalidade_dengue, x = ~fx_et_p, y = ~letalidade, name = "Letalidade (%)",
+            yaxis = 'y2', line = list(color = "#ee9600"),
+            hovertemplate = "Faixa etária: %{x}<br>Letalidade: %{y:.3}%") %>%
+  layout(
+    xaxis = list(title = "Faixa etária (anos)"),
+    yaxis = list(tickfont = list(color = "#bb3c03", size = 11), color = "#bb3c03",
+                 title = "Número de óbitos"),
+    yaxis2 = list(overlaying = "y", side = "right",
+                  tickfont = list(color = "#ee9600", size = 11), color = "#ee9600",
+                  title = "Letalidade (%)"),
+    legend = list(x = 0.1, y = 0.95),
+    margin = list(r = 50)  # Ajuste a margem direita conforme necessário
+  )
+
+```
+
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE}
+
+top2_fatores_dengue <- confirmados_dengue %>% 
+  filter(EVOLUCAO == 2) %>% 
+  select(DIABETES, HEMATOLOG, HEPATOPAT, RENAL, HIPERTENSA, ACIDO_PEPT, AUTO_IMUNE) %>% 
+    mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>% 
+    pivot_longer(
+    cols = c(DIABETES, HEMATOLOG, HEPATOPAT, RENAL, HIPERTENSA, ACIDO_PEPT, AUTO_IMUNE), 
+    names_to = "fatores",
+    values_to = "n") %>% 
+  mutate(fatores = case_when(fatores == "DIABETES" ~ "diabetes",
+                             fatores == "HEMATOLOG" ~ "doenças hematológicas",
+                             fatores == "HEPATOPAT" ~ "hepatopatias", 
+                             fatores == "RENAL" ~ "doença renal crônica",
+                             fatores == "HIPERTENSA" ~ "hipertensão arterial sistêmica",
+                             fatores == "ACIDO_PEPT" ~ "doença ácido-péptica",
+                             fatores == "AUTO_IMUNE" ~ "doenças auto-imunes",
+                             T ~ fatores)) %>% 
+  group_by(fatores) %>% 
+  summarise(n = sum(n)) %>% 
+  mutate(perc = paste0(format(round(n/sum(n)*100), big.mark = ".", decimal.mark = ","),"%")) %>% 
+  arrange(desc(n)) %>%
+  top_n(2, n) 
+
+```
+
+<br/>
+
+As doenças pré-existentes mais frequentes entre os casos que evoluíram para óbito por dengue foram `r knitr::combine_words(top2_fatores_dengue$fatores, and = " e ")`, presentes em `r knitr::combine_words(top2_fatores_dengue$perc, and = " e ")` dos casos, respectivamente. A ocorrência de sinais de alarme e de sinais de gravidade pode ser verificada na **Figura 9**.
+
+<br/>
+
+**_Figura 9_ - Frequência de sinais de alarme e de gravidade entre casos que evoluíram para óbito por dengue, estado de São Paulo, `r ano`**
+```{r, echo=FALSE, warning = FALSE, message = FALSE, out.width="100%", fig.align = "center"}
+
+alarme <- confirmados_dengue %>%
+    filter(EVOLUCAO == 2) %>% 
+    select(ALRM_HIPOT, ALRM_PLAQ,
+                      ALRM_VOM, ALRM_SANG, ALRM_HEMAT, ALRM_ABDOM, ALRM_LETAR, ALRM_HEPAT, ALRM_LIQ) %>%
+    mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>%
+    mutate(casos = 1, total = sum(casos)) %>%
+    pivot_longer(
+    cols = c(-total, -casos),
+    names_to = "fatores",
+    values_to = "n") %>%
+    mutate(fatores = case_when(fatores == "ALRM_ABDOM" ~ "Dor abdominal intensa",
+                        fatores == "ALRM_HIPOT" ~ "Hipotensão postural",
+                        fatores == "ALRM_PLAQ" ~ "Queda abrupta de plaquetas",
+                        fatores == "ALRM_VOM" ~ "Vômitos persistentes",
+                        fatores == "ALRM_SANG" ~ "Sangramento de mucosas",
+                        fatores == "ALRM_HEMAT" ~ "Aumento progressivo do hematócrito",
+                        fatores == "ALRM_LETAR" ~ "Letargia",
+                        fatores == "ALRM_HEPAT" ~ "Hepatomegalia dolorosa",
+                        fatores == "ALRM_LIQ" ~ "Derrames cavitários",
+                             T ~ fatores)) %>%
+  mutate(fatores = factor(fatores), fatores = reorder(fatores, -n)) %>%
+  group_by(fatores) %>%
+  mutate(n = sum(n), perc = round(n/total*100)) %>%
+  distinct(fatores, .keep_all = T) %>%
+  select(-casos, - total) %>% 
+  mutate(classificacao = "Sinais de alarme")
+
+grave <- confirmados_dengue %>%
+    filter(EVOLUCAO == 2) %>% 
+    select(GRAV_PULSO, GRAV_CONV, GRAV_ENCH, GRAV_INSUF, GRAV_TAQUI, GRAV_EXTRE,
+                      GRAV_HIPOT, GRAV_HEMAT, GRAV_MELEN, GRAV_METRO, GRAV_SANG, GRAV_AST, GRAV_MIOC,
+                      GRAV_CONSC) %>%
+    mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>%
+    mutate(casos = 1, total = sum(casos)) %>%
+    pivot_longer(
+    cols = c(-total, -casos),
+    names_to = "fatores",
+    values_to = "n") %>%
+    mutate(fatores = case_when(
+      fatores == "GRAV_PULSO" ~ "Pulso débil ou indetectável",
+                        fatores == "GRAV_CONV" ~ "PA convergente",
+                        fatores == "GRAV_ENCH" ~ "Tempo enchimento capilar > 3s",
+                        fatores == "GRAV_INSUF" ~ "Acúmulo de líquidos com insuficiência respiratória",
+                        fatores == "GRAV_TAQUI" ~ "Taquicardia",
+                        fatores == "GRAV_EXTRE" ~ "Extremidades frias",
+                        fatores == "GRAV_HIPOT" ~ "Hipotensão arterial",
+                        fatores == "GRAV_HEMAT" ~ "Hematêmese",
+                        fatores == "GRAV_MELEN" ~ "Melena",
+                        fatores == "GRAV_METRO" ~ "Metrorragia volumosa",
+                        fatores == "GRAV_SANG" ~ "Sangramento do SNC",
+                        fatores == "GRAV_AST" ~ "ALT/AST > 1000",
+                        fatores == "GRAV_MIOC" ~ "Miocardite",
+                        fatores == "GRAV_CONSC" ~ "Alteração da consciência",
+                             T ~ fatores)) %>%
+  mutate(fatores = factor(fatores), fatores = reorder(fatores, -n)) %>%
+  group_by(fatores) %>%
+  mutate(n = sum(n), perc = round(n/total*100)) %>%
+  distinct(fatores, .keep_all = T) %>%
+  select(-casos, - total) %>% 
+  mutate(classificacao = "Sinais de gravidade")
+
+
+bind_rows(alarme, grave) %>%
+  group_by(classificacao) %>%
+  plot_ly(y = ~reorder(fct_rev(fatores), perc),
+          x = ~perc,
+          hovertemplate = ~paste("Sinal de alarme/gravidade: ", fatores, "<br>",
+                        "Casos com sinal: ", format(n, big.mark = ".", decimal.mark = ","), "<br>",
+                        "Frequência: ", format(perc, big.mark = ".", decimal.mark = ","), sep = "", "%"),
+          type = "scatter",
+          mode = "markers",
+        color = ~fatores,
+        colors = c("#bb3c03")) %>%
+  add_segments(y = ~reorder(fct_rev(fatores), perc),
+               yend = ~reorder(fct_rev(fatores), perc),
+               x = 0, xend = ~perc,
+               line = list(dash = "dot", color = "#6f6f6f")) %>%
+  layout(xaxis = list(title = ""),
+         yaxis = list(title = "%"),
+         margin = list(b = 100),
+         showlegend = FALSE,
+         xaxis2 = list(anchor = "free"),
+         xaxis3 = list(anchor = "free"))%>%
+  add_markers(marker = list(size = 10))
+
+
+```
+

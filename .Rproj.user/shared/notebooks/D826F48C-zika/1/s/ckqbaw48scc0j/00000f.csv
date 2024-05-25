@@ -1,0 +1,90 @@
+"0","tabela_anos_zikv_gestantes <- reactable(
+        tabela_zikv_gestantes,
+        theme = reactableTheme(
+                style = list(fontSize = 14, padding = ""0px 0px 0px 0px""),
+                groupHeaderStyle = list(fontWeight = ""bold"")
+        ),
+        fullWidth = FALSE,
+        defaultColDef = colDef(vAlign = ""center"", width = 120),
+        columnGroups = list(
+                colGroup(name = """", columns = c(""ano"", ""periodo"", ""notificados"", ""investigacao"", ""confirmados"", ""obitos""))),
+        columns = list(
+                notificacao = colDef(show=FALSE),
+                confirmacao = colDef(show=FALSE),
+                mortes = colDef(show=FALSE),
+                ano = colDef(name = ""Ano"",
+                             sticky=""left"",
+                             width=50,
+                             style='background-color:#FCFCFC;'),
+                periodo = colDef(name = ""Período"", 
+                                 style = cell_style(
+                                         border_color = ""#f2f2f2"",
+                                         border_style = ""solid"",
+                                         border_width = ""1px 0px 0px 2px"",
+                                         vertical_align = ""center"",
+                                         horizontal_align = ""center""),
+                                 align = ""center""),
+                notificados = colDef(name = ""Notificados"", 
+                                     style = cell_style(
+                                             border_color = ""#f2f2f2"",
+                                             border_style = ""solid"",
+                                             border_width = ""1px 0px 0px 2px"",
+                                             vertical_align = ""center"",
+                                             horizontal_align = ""center""),
+                                     align = ""right"",
+                                     cell = function(value, index){
+                                             color = tabela_zikv_gestantes$notificacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_zikv_gestantes$notificacao[index] == ""#C51620"",""arrow-up"",""arrow-down"")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue(""text-align:left;display:inline-block;width:1px;color:{color}"")),
+                                                     span(value, style=glue(""text-align:right;display:inline-block;width:70px;color:black;""))
+                                             )
+                                     }),
+                investigacao = colDef(name = ""Investigação"", 
+                                 style = cell_style(
+                                         border_color = ""#f2f2f2"",
+                                         border_style = ""solid"",
+                                         border_width = ""1px 0px 0px 2px"",
+                                         vertical_align = ""center"",
+                                         horizontal_align = ""center""),
+                                 align = ""right""),
+                confirmados = colDef(name = ""Confirmados"",
+                                     style = cell_style(
+                                             border_color = ""#f2f2f2"",
+                                             border_style = ""solid"",
+                                             border_width = ""1px 0px 0px 2px"",
+                                             vertical_align = ""center"",
+                                             horizontal_align = ""center""),
+                                     align = ""right"", 
+                                     cell = function(value, index){
+                                             color = tabela_zikv_gestantes$confirmacao[index]
+                                             value = value
+                                             icon = ifelse(tabela_zikv_gestantes$confirmacao[index] == ""#C51620"",""arrow-up"",""arrow-down"")
+                                             tagList(
+                                                     span(shiny::icon(icon), style=glue(""text-align:left;display:inline-block;width:1px;color:{color}"")),
+                                                     span(value, style=glue(""text-align:right;display:inline-block;width:70px;color:black;""))
+                                             )
+                                     }),
+                obitos = colDef(name = ""Óbitos"",
+                                style = cell_style(
+                                        border_color = ""#f2f2f2"",
+                                        border_style = ""solid"",
+                                        border_width = ""1px 0px 0px 2px"",
+                                        vertical_align = ""center"",
+                                        horizontal_align = ""center""),
+                                align = ""right"", 
+                                cell = function(value, index){
+                                        color = tabela_zikv_gestantes$mortes[index]
+                                        value = value
+                                        icon = ifelse(tabela_zikv_gestantes$mortes[index] == ""#C51620"",""arrow-up"",""arrow-down"")
+                                        tagList(
+                                                span(shiny::icon(icon), style=glue(""text-align:left;display:inline-block;width:1px;color:{color}"")),
+                                                span(value, style=glue(""text-align:right;display:inline-block;width:45px;color:black;""))
+                                        )
+                                }))) %>%
+        reactablefmtr::google_font(font_family = ""IBM Plex Sans"", font_weight = c(400, 600)) %>% 
+        add_source(paste0(""Fonte: SINAN (atualizado em "", format(dt_atualizacao, '%d/%m/%Y'), "")""), font_size = 10, font_color = ""#737373"")
+"
+"2","Erro: objeto 'tabela_zikv_gestantes' não encontrado
+"

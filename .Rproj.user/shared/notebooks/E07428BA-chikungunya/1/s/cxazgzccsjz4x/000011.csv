@@ -1,0 +1,29 @@
+"0","tabela_chik <- data.frame(ano = c(year(min(chikungunya_ano_anterior$DT_NOTIFIC)), year(min(chikungunya_ano_anterior$DT_NOTIFIC)),    year(max(chikungunya$DT_NOTIFIC))),
+                     periodo = c(""SE 1 - 52"", paste0(""SE 1 - "", SE_final$SE), paste0(""SE 1 - "", SE_final$SE)),
+                     notificados = c(notificados_ano_anterior_chik, notificados_ano_anterior_parcial_chik, notificados_atual_chik),
+                     investigacao = c(""."", ""."", format(investigacao_atual_chik, big.mark = ""."", decimal.mark = "","")),
+                     confirmados = c(confirmados_ano_anterior_chik, confirmados_ano_anterior_parcial_chik, confirmados_atual_chik),
+                     obitos = c(obitos_ano_anterior_chik, obitos_ano_anterior_parcial_chik, obitos_atual_chik)
+) %>% 
+
+        mutate(notificacao = case_when(ano == year(max(chikungunya$DT_NOTIFIC)) & notificados > lag(notificados, default = NA) ~ ""2"",
+                                         ano == year(max(chikungunya$DT_NOTIFIC)) & notificados < lag(notificados, default = NA) ~ ""0""),
+               confirmacao = case_when(ano == year(max(chikungunya$DT_NOTIFIC)) & confirmados > lag(confirmados, default = NA) ~ ""2"",
+                                           ano == year(max(chikungunya$DT_NOTIFIC)) & confirmados < lag(confirmados, default = NA) ~ ""0""),
+               mortes = case_when(ano == year(max(chikungunya$DT_NOTIFIC)) & obitos > lag(obitos, default = NA) ~ ""2"",
+                                         ano == year(max(chikungunya$DT_NOTIFIC)) & obitos < lag(obitos, default = NA) ~ ""0"")) %>% 
+        mutate(notificacao = case_when(notificacao == 2 ~ ""#C51620"",
+                                         notificacao == 0 ~ ""#2D708EFF"",
+                                         T ~ ""white""),
+               confirmacao = case_when(confirmacao == 2 ~ ""#C51620"", 
+                                       confirmacao == 0 ~ ""#2D708EFF"",
+                                       T ~ ""white""),
+               mortes = case_when(mortes == 2 ~ ""#C51620"", 
+                                  mortes == 0 ~ ""#2D708EFF"",
+                                  T ~ ""white"")) %>% 
+        mutate(notificados = format(notificados, big.mark = ""."", decimal.mark = "",""),
+               confirmados = format(confirmados, big.mark = ""."", decimal.mark = "",""),
+               obitos = format(obitos, big.mark = ""."", decimal.mark = "",""))
+"
+"2","Erro: objeto 'notificados_ano_anterior_chik' não encontrado
+"
